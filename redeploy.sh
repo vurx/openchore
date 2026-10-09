@@ -3,21 +3,24 @@ set -euo pipefail
 
 WIPE=false
 PROFILE=""
+BUILD=""
 
 for arg in "$@"; do
   case "$arg" in
     --wipe) WIPE=true ;;
     --ai) PROFILE="--profile ai --profile tts" ;;
+    --build) BUILD="--build" ;;
     -h|--help)
-      echo "Usage: ./redeploy.sh [--wipe] [--ai]"
+      echo "Usage: ./redeploy.sh [--wipe] [--ai] [--build]"
       echo ""
-      echo "  --wipe  Remove volumes (database) before redeploying"
-      echo "  --ai    Include the AI sidecars (llama.cpp + Kokoro TTS; see docs/ai.md)"
+      echo "  --wipe   Remove volumes (database) before redeploying"
+      echo "  --ai     Include the AI sidecars (llama.cpp + Kokoro TTS; see docs/ai.md)"
+      echo "  --build  Rebuild local images instead of only pulling"
       exit 0
       ;;
     *)
       echo "Unknown option: $arg"
-      echo "Usage: ./redeploy.sh [--wipe] [--ai]"
+      echo "Usage: ./redeploy.sh [--wipe] [--ai] [--build]"
       exit 1
       ;;
   esac
@@ -40,7 +43,7 @@ else
 fi
 
 echo "==> Starting containers..."
-docker compose $PROFILE up -d
+docker compose $PROFILE up -d $BUILD
 
 echo "==> Waiting for API health check..."
 timeout 60 sh -c 'until docker compose ps api --format "{{.Health}}" 2>/dev/null | grep -q healthy; do sleep 2; done' \

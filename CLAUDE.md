@@ -31,6 +31,9 @@ Family chore-tracking PWA: Go API + React/TypeScript frontend, SQLite storage, o
 - `make test-all` — both.
 - `make build` — Go binary + Vite bundle.
 - `make install` — Go + npm deps.
+- `make docker-up` / `make docker-down` — run or stop containers with Docker Compose (builds natively).
+- `make docker-build` — build local Docker images (Mac arm64 / Linux amd64).
+- `make docker-build-multiarch` — build multi-arch images (`linux/amd64,linux/arm64`) using buildx.
 
 ## Conventions
 - **Models:** add/extend types only in `internal/model/model.go`.

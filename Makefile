@@ -62,6 +62,20 @@ test-all: test test-e2e
 clean:
 	rm -f server openchore.db openchore.db-shm openchore.db-wal
 
+# Docker targets (supports both Mac ARM64 and Linux AMD64)
+docker-build:
+	docker compose build
+
+docker-build-multiarch:
+	docker buildx build --platform linux/amd64,linux/arm64 -t openchore-api:latest .
+	docker buildx build --platform linux/amd64,linux/arm64 -t openchore-web:latest ./web
+
+docker-up:
+	docker compose up -d --build
+
+docker-down:
+	docker compose down
+
 # Show help
 help:
 	@echo "Available targets:"
@@ -73,8 +87,13 @@ help:
 	@echo "  ai-down - Stop the local AI services"
 	@echo "  install - Install dependencies for both API and UI"
 	@echo "  build   - Build both API and UI"
+	@echo "  docker-build           - Build Docker images for current host (Mac arm64 / Linux amd64)"
+	@echo "  docker-build-multiarch - Build multi-arch Docker images (linux/amd64,linux/arm64)"
+	@echo "  docker-up              - Start services with Docker Compose (builds locally)"
+	@echo "  docker-down            - Stop Docker Compose services"
 	@echo "  test              - Run Go tests"
 	@echo "  test-e2e-install  - Install e2e test dependencies (Playwright + Chromium)"
 	@echo "  test-e2e          - Run e2e tests (starts servers automatically)"
 	@echo "  test-all          - Run Go tests + e2e tests"
 	@echo "  clean             - Clean up build artifacts and database"
+

@@ -10,6 +10,7 @@ export interface LanguageOption {
 export const LANGUAGES: LanguageOption[] = [
   { code: 'en', label: 'English' },
   { code: 'de', label: 'Deutsch' },
+  { code: 'zh', label: '中文' },
 ];
 
 export const SUPPORTED_CODES = LANGUAGES.map((l) => l.code);

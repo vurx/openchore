@@ -4,12 +4,14 @@ import LanguageDetector from 'i18next-browser-languagedetector';
 import { SUPPORTED_CODES, FALLBACK_CODE } from './languages';
 import en from './locales/en/translation.json';
 import de from './locales/de/translation.json';
+import zh from './locales/zh/translation.json';
 
 // resources is keyed by language code; add new languages alongside their
 // LANGUAGES entry. Each maps to a single `translation` namespace.
 const resources = {
   en: { translation: en },
   de: { translation: de },
+  zh: { translation: zh },
 } as const;
 
 i18n

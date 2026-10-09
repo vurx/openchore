@@ -26,4 +26,18 @@ describe('i18n configuration', () => {
     expect(i18n.t('test.points', { count: 1 })).toBe('1 point');
     expect(i18n.t('test.points', { count: 3 })).toBe('3 points');
   });
+
+  it('switches to Chinese and resolves translations correctly', async () => {
+    await i18n.changeLanguage('zh-CN');
+    expect(i18n.resolvedLanguage).toBe('zh');
+    expect(i18n.t('common.back')).toBe('返回');
+    await i18n.changeLanguage('zh');
+    expect(i18n.resolvedLanguage).toBe('zh');
+    expect(i18n.t('common.back')).toBe('返回');
+    expect(i18n.t('common.save')).toBe('保存');
+    expect(i18n.t('test.greeting', { name: '小明' })).toBe('你好，小明');
+    expect(i18n.t('test.points', { count: 5 })).toBe('5 积分');
+    // Switch back to fallback
+    await i18n.changeLanguage('en');
+  });
 });

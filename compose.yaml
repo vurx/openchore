@@ -3,7 +3,7 @@ services:
     image: ghcr.io/liftedkilt/openchore/api:latest
     build:
       context: .
-      dockerfile: Containerfile
+      dockerfile: Dockerfile
     container_name: openchore-api
     restart: unless-stopped
     environment:
@@ -33,7 +33,7 @@ services:
     image: ghcr.io/liftedkilt/openchore/web:latest
     build:
       context: ./web
-      dockerfile: Containerfile
+      dockerfile: Dockerfile
     container_name: openchore-web
     restart: unless-stopped
     ports:

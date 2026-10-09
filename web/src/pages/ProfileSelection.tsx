@@ -10,6 +10,7 @@ import {
   resolveSkin, salutationFor, useMinuteClock, type AvatarSize, type Skin,
 } from '../design';
 import { BrandMark } from '../components/BrandMark/BrandMark';
+import { LanguageSelector } from '../components/LanguageSelector/LanguageSelector';
 import PinPad from '../components/PinPad/PinPad';
 import {
   dayFraction, orderFamily, stripMembers, useFamilyToday, type PersonToday,
@@ -421,7 +422,10 @@ export const ProfileSelection: React.FC = () => {
       <div className={styles.page}>
         <header className={styles.top}>
           <BrandMark />
-          <time className={styles.date} dateTime={clock.toISOString()}>{dateLabel}</time>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <LanguageSelector />
+            <time className={styles.date} dateTime={clock.toISOString()}>{dateLabel}</time>
+          </div>
         </header>
 
         <h1 className={styles.hello}>

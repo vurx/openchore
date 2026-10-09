@@ -1,24 +1,5 @@
 <div align="center">
 
-# OpenChore
-
-**Household chores, turned into a game your kids actually check.**
-
-A self-hosted family chore tracker with a points economy, a rewards store,
-streaks, and an always-on wall display. One Go binary, one SQLite file, no cloud
-account.
-
-[![Release](https://img.shields.io/github/v/release/liftedkilt/openchore)](https://github.com/liftedkilt/openchore/releases)
-[![Build](https://github.com/liftedkilt/openchore/actions/workflows/build.yml/badge.svg)](https://github.com/liftedkilt/openchore/actions/workflows/build.yml)
-[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
-[![Go](https://img.shields.io/badge/Go-1.25-00ADD8?logo=go&logoColor=white)](https://go.dev)
-[![React](https://img.shields.io/badge/React-18-61DAFB?logo=react&logoColor=black)](https://react.dev)
-[![PWA](https://img.shields.io/badge/PWA-installable-5A0FC8)](https://web.dev/progressive-web-apps/)
-
-<img src="docs/screenshots/ambient-dashboard.png" alt="OpenChore wall display: three kids' days side by side, each in their own skin, with the family's progress below" width="100%">
-
-</div>
-
 ---
 
 ## Why OpenChore
@@ -96,11 +77,11 @@ new skins and everyone is given a colour. Two things need a look:
 The scheduling model is what makes the economy hold together. Chores fall into
 three tiers, and the tiers gate each other:
 
-| Tier | Behavior |
-|------|----------|
-| **Required** | Non-negotiable. Nothing else pays out until these are done. |
-| **Core** | The daily routine. Points are held **pending** until every required chore is complete. |
-| **Bonus** | Optional extras. Only awarded once required *and* core are finished. |
+| Tier               | Behavior                                                                                    |
+| ------------------ | ------------------------------------------------------------------------------------------- |
+| **Required** | Non-negotiable. Nothing else pays out until these are done.                                 |
+| **Core**     | The daily routine. Points are held**pending** until every required chore is complete. |
+| **Bonus**    | Optional extras. Only awarded once required*and* core are finished.                       |
 
 That single rule stops the obvious exploit: cherry-picking the fun 15-point
 bonus chore and skipping the ones that matter.
@@ -181,98 +162,97 @@ skin.
 <table>
 <tr><td valign="top" width="33%">
 
-**Scheduling**
-- Weekly, every-N-days, or one-off
-- Time locks and deadlines
-- Multi-child assignment
-- Family and first-come chores
-- Quick-assign for ad-hoc tasks
-- Vacation mode
-
-</td><td valign="top" width="33%">
-
-**Economy**
-- Transaction ledger
-- Rewards store with stock limits
-- Per-kid pricing and visibility
-- Savings commitments and pools
-- Streak milestones
-- Configurable decay and penalties
-
-</td><td valign="top" width="33%">
-
-**Household**
-- Parent approval queue
-- Parents can take part too
-- PINs and OIDC single sign-on
-- Photo proof via QR handoff
-- Discord notifications
-- Reports: scorecards, trends, misses
-- Three skins, eight person colours
-- House and House Dark for shared screens
-- English and German
-
-</td></tr>
-<tr><td valign="top">
-
-**Integrations**
-- Outbound webhooks, HMAC-signed
-- Delivery log with responses
-- Per-chore trigger URLs
-- Bearer API tokens
-- Home Assistant integration
-
-</td><td valign="top">
-
-**Optional AI** (local or hosted)
-- Photo notes for approvals (never rejects)
-- Weekly summaries
-- Chore description drafting
-- Recorded read-aloud voices
-
-</td><td valign="top">
-
-**Accessibility**
-- Read-aloud chore cards
-- Swipe-to-complete
-- 44px minimum tap targets
-- Installable PWA, fullscreen
-- Ambient wall display mode
-- Category shapes, not just colours
-
-</td></tr>
-</table>
-
 ## Configuration
 
-| Variable | Default | Purpose |
-|----------|---------|---------|
-| `PORT` | `8080` | API listen port |
-| `DB_PATH` | `openchore.db` | SQLite file location |
-| `CONFIG_PATH` | `config/config.yaml` | Seed configuration |
-| `TZ` | system | **Set this** — deadlines and time locks depend on it |
-| `WEB_PORT` | `8080` | Host port for the web container |
-| `AI_BASE_URL`, `AI_MODEL`, `AI_API_KEY` | — | OpenAI-compatible model for AI features. Can also be set under Manage → Settings; the variable wins. See [AI features](docs/ai.md) |
-| `TTS_BASE_URL`, `TTS_MODEL`, `TTS_API_KEY` | — | OpenAI-compatible speech service for read-aloud audio (or set it under Manage → Settings); the browser's voice is used when neither is set |
-| `POINTS_DECAY_INTERVAL` | `15m` | How often the decay worker checks (the e2e suite shortens it) |
-| `OPENCHORE_PUBLIC_URL` | request host | External URL used for OIDC redirect URIs |
-| `OIDC_ISSUER`, `OIDC_CLIENT_ID`, `OIDC_CLIENT_SECRET`, … | — | One OIDC provider without editing config (providers can also be added under Manage → Settings); see [Signing in](docs/authentication.md) |
-| `OPENCHORE_SESSION_SECRET` | generated | Session signing key (≥32 chars); otherwise generated once and stored in the database |
+| Variable                                                        | Default                | Purpose                                                                                                                                     |
+| --------------------------------------------------------------- | ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| `PORT`                                                        | `8080`               | API listen port                                                                                                                             |
+| `DB_PATH`                                                     | `openchore.db`       | SQLite file location                                                                                                                        |
+| `CONFIG_PATH`                                                 | `config/config.yaml` | Seed configuration                                                                                                                          |
+| `TZ`                                                          | system                 | **Set this** — deadlines and time locks depend on it                                                                                 |
+| `WEB_PORT`                                                    | `8080`               | Host port for the web container                                                                                                             |
+| `AI_BASE_URL`, `AI_MODEL`, `AI_API_KEY`                   | —                     | OpenAI-compatible model for AI features. Can also be set under Manage → Settings; the variable wins. See[AI features](docs/ai.md)           |
+| `TTS_BASE_URL`, `TTS_MODEL`, `TTS_API_KEY`                | —                     | OpenAI-compatible speech service for read-aloud audio (or set it under Manage → Settings); the browser's voice is used when neither is set |
+| `POINTS_DECAY_INTERVAL`                                       | `15m`                | How often the decay worker checks (the e2e suite shortens it)                                                                               |
+| `OPENCHORE_PUBLIC_URL`                                        | request host           | External URL used for OIDC redirect URIs                                                                                                    |
+| `OIDC_ISSUER`, `OIDC_CLIENT_ID`, `OIDC_CLIENT_SECRET`, … | —                     | One OIDC provider without editing config (providers can also be added under Manage → Settings); see[Signing in](docs/authentication.md)     |
+| `OPENCHORE_SESSION_SECRET`                                    | generated              | Session signing key (≥32 chars); otherwise generated once and stored in the database                                                       |
 
-## Development
+## Development & Local Run / 本地运行
 
-Requires Go 1.25+ and Node 22+.
+### 1. 本地原生开发启动 (Native Dev)
+
+无需 Docker，直接在 Mac / Linux 本地运行开发环境（需要 Go 1.25+ 与 Node 22+）：
 
 ```bash
-make install    # Go modules + npm packages
-make dev        # wipes the DB, seeds from config, runs API :8080 + Vite :5173
-make test       # Go integration tests against a real SQLite DB
-make test-e2e   # Playwright suite, fresh database
-make build      # static binary + production bundle
+# 1. 安装前后端依赖（重要：确保 Vite 等前端依赖安装完毕）
+make install
+
+# 2. 准备配置文件（若未自动生成）
+cp config/config.example.yaml config/config.yaml
+
+# 3. 启动开发模式（同时并发启动 API :8080 与 Vite :5173）
+make dev
 ```
 
-`make dev` **deletes the database** on every run — that's how re-seeding works.
-Point `DB_PATH` elsewhere if you care about the data.
+> **提示**：
+>
+> - `make dev` 每次启动时会刷新本地 SQLite 数据库并基于 `config/config.yaml` 重新注入初始数据。
+> - `config/config.yaml` 中每项家务的 `schedules[].assign_to` 所指派的用户名必须在顶层的 `users` 列表中存在。
+> - 也可单独启动某一端：`make api`（仅后端）或 `make ui`（仅前端）。
+
+### 2. 本地 Docker 运行 (Docker Run)
+
+在本地通过容器运行（自适应 Mac Apple Silicon ARM64 及 Linux x86_64）：
+
+```bash
+# 拷贝配置文件
+cp config/config.example.yaml config/config.yaml
+
+# 本地构建并后台启动
+make docker-up
+# 等同于: docker compose up -d --build
+
+# 停止容器
+make docker-down
+# 等同于: docker compose down
+```
+
+启动后访问 **http://localhost:8080** 即可。
+
+---
+
+## Docker 镜像构建 (Building Images)
+
+### 本地架构镜像构建 (Mac ARM64 / Linux AMD64)
+
+构建针对当前主机架构的原生镜像：
+
+```bash
+# 一键构建所有服务镜像
+make docker-build
+
+# 或单独构建后端 API 镜像
+docker build -t openchore-api:latest -f Dockerfile .
+
+# 或单独构建前端 Web 镜像
+docker build -t openchore-web:latest -f web/Dockerfile ./web
+```
+
+### 多架构镜像构建 (Multi-Arch: Linux AMD64 + Mac ARM64)
+
+本项目 Dockerfile 采用了 `--platform=$BUILDPLATFORM` 与 Go 跨架构编译支持，可通过 Docker Buildx 一次性构建支持多种架构的镜像：
+
+```bash
+# 使用 Makefile 快捷构建
+make docker-build-multiarch
+
+# 或直接使用 docker buildx
+docker buildx build --platform linux/amd64,linux/arm64 -t openchore-api:latest -f Dockerfile .
+docker buildx build --platform linux/amd64,linux/arm64 -t openchore-web:latest -f web/Dockerfile ./web
+```
+
+---
 
 The stack is Go with `chi` and pure-Go SQLite (`CGO_ENABLED=0`, WAL, single
 writer), React 18 + TypeScript + Vite on the front, and `golang-migrate` with
