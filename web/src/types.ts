@@ -203,6 +203,7 @@ export interface PointTransaction {
   reference_id?: number;
   note?: string;
   created_at: string;
+  chore_title?: string;
 }
 
 export interface RewardCommitment {

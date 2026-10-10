@@ -61,6 +61,12 @@ func (pc *DecayChecker) check(ctx context.Context) {
 		}
 
 		for _, c := range chores {
+			// A chore cannot be missed on a date before its schedule was created.
+			createdDate, err := pc.store.GetScheduleCreatedDate(ctx, c.ScheduleID)
+			if err == nil && createdDate != "" && yesterday < createdDate {
+				continue
+			}
+
 			// Penalize any non-bonus chore (required or core) that wasn't
 			// completed and has a configured missed-penalty value. Bonus
 			// chores are optional and never incur a missed-chore penalty.

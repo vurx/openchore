@@ -96,11 +96,12 @@ function weekdayName(dow: number, lang: string): string {
 const pct = (n: number) => `${Math.round(n)}%`;
 const CAT_ORDER: Record<Cat, number> = { essential: 0, daily: 1, bonus: 2 };
 
-/** One trend row per day from the period's start to its end or today, whichever is first. */
+/** One trend row per day from the period's start to its end or yesterday (only settled days). */
 function fillDays(data: ReportsData): TrendDay[] {
   const byDate = new Map(data.trend.map((d) => [d.date, d]));
   const today = localDateStr(new Date());
-  const last = data.end_date < today ? data.end_date : today;
+  const yesterday = localDateStr(new Date(Date.now() - 86400000));
+  const last = data.end_date < today ? data.end_date : yesterday;
   const out: TrendDay[] = [];
   for (let d = parseDay(data.start_date); localDateStr(d) <= last && out.length < 400; d.setDate(d.getDate() + 1)) {
     const key = localDateStr(d);

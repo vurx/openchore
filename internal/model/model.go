@@ -232,6 +232,7 @@ type PointTransaction struct {
 	Note           string    `json:"note,omitempty"`
 	IdempotencyKey *string   `json:"idempotency_key,omitempty"`
 	CreatedAt      time.Time `json:"created_at"`
+	ChoreTitle     string    `json:"chore_title,omitempty"`
 }
 
 type Reward struct {

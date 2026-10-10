@@ -7,6 +7,7 @@ import (
 	"log"
 	"os"
 	"strconv"
+	"time"
 
 	"golang.org/x/crypto/bcrypt"
 	"gopkg.in/yaml.v3"
@@ -141,6 +142,7 @@ func Apply(ctx context.Context, s *store.Store, cfg *Config) error {
 				multiplier = 1.0
 			}
 
+			today := time.Now().Format(model.DateFormat)
 			for _, dow := range days {
 				schedule := &model.ChoreSchedule{
 					ChoreID:            chore.ID,
@@ -151,6 +153,7 @@ func Apply(ctx context.Context, s *store.Store, cfg *Config) error {
 					DueBy:              nilStr(sc.DueBy),
 					ExpiryPenalty:      sc.Expiry,
 					ExpiryPenaltyValue: sc.ExpiryPoints,
+					StartDate:          &today,
 				}
 				if dow >= 0 {
 					d := dow

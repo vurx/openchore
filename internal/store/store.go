@@ -1370,8 +1370,22 @@ func (s *Store) GetAllPointBalances(ctx context.Context) ([]PointBalanceRow, err
 
 func (s *Store) ListPointTransactions(ctx context.Context, userID int64, limit int) ([]model.PointTransaction, error) {
 	rows, err := s.db.QueryContext(ctx,
-		`SELECT id, user_id, amount, reason, reference_id, note, idempotency_key, created_at
-		 FROM point_transactions WHERE user_id = ? ORDER BY id DESC LIMIT ?`, userID, limit)
+		`SELECT pt.id, pt.user_id, pt.amount, pt.reason, pt.reference_id, pt.note, pt.idempotency_key, pt.created_at,
+		        COALESCE(
+		            CASE
+		                WHEN pt.reason = 'missed_chore' THEN (
+		                    SELECT c.title FROM chore_schedules cs JOIN chores c ON c.id = cs.chore_id WHERE cs.id = pt.reference_id
+		                )
+		                WHEN pt.reason IN ('chore_complete', 'chore_uncomplete', 'expiry_penalty') THEN (
+		                    SELECT c.title FROM chore_completions cc JOIN chore_schedules cs ON cs.id = cc.chore_schedule_id JOIN chores c ON c.id = cs.chore_id WHERE cc.id = pt.reference_id
+		                )
+		                WHEN pt.reason = 'reward_redeem' THEN (
+		                    SELECT r.name FROM reward_redemptions rr JOIN rewards r ON r.id = rr.reward_id WHERE rr.id = pt.reference_id
+		                )
+		                ELSE NULL
+		            END, ''
+		        ) AS chore_title
+		 FROM point_transactions pt WHERE pt.user_id = ? ORDER BY pt.id DESC LIMIT ?`, userID, limit)
 	if err != nil {
 		return nil, err
 	}
@@ -1380,7 +1394,7 @@ func (s *Store) ListPointTransactions(ctx context.Context, userID int64, limit i
 	for rows.Next() {
 		var t model.PointTransaction
 		var idempotencyKey sql.NullString
-		if err := rows.Scan(&t.ID, &t.UserID, &t.Amount, &t.Reason, &t.ReferenceID, &t.Note, &idempotencyKey, &t.CreatedAt); err != nil {
+		if err := rows.Scan(&t.ID, &t.UserID, &t.Amount, &t.Reason, &t.ReferenceID, &t.Note, &idempotencyKey, &t.CreatedAt, &t.ChoreTitle); err != nil {
 			return nil, err
 		}
 		if idempotencyKey.Valid {
@@ -1390,6 +1404,14 @@ func (s *Store) ListPointTransactions(ctx context.Context, userID int64, limit i
 		txs = append(txs, t)
 	}
 	return txs, rows.Err()
+}
+
+// GetScheduleCreatedDate returns the effective start date for a schedule (start_date or date(created_at)).
+func (s *Store) GetScheduleCreatedDate(ctx context.Context, scheduleID int64) (string, error) {
+	var d string
+	err := s.db.QueryRowContext(ctx,
+		`SELECT COALESCE(start_date, date(created_at, 'localtime')) FROM chore_schedules WHERE id = ?`, scheduleID).Scan(&d)
+	return d, err
 }
 
 func (s *Store) AdminAdjustPoints(ctx context.Context, userID int64, amount int, note string) error {

@@ -121,6 +121,18 @@ func (h *ReportsHandler) GetReports(w http.ResponseWriter, r *http.Request) {
 	startStr := startDate.Format(model.DateFormat)
 	endStr := endDate.Format(model.DateFormat)
 
+	todayStr := time.Now().Format(model.DateFormat)
+	yesterdayStr := time.Now().AddDate(0, 0, -1).Format(model.DateFormat)
+
+	// Reports only count settled days (up to yesterday) for the current ongoing period.
+	if endStr >= todayStr {
+		if yesterdayStr >= startStr {
+			endStr = yesterdayStr
+		} else {
+			endStr = startStr
+		}
+	}
+
 	kidRows, err := h.store.ReportKidSummaries(r.Context(), startStr, endStr)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "failed to get kid summaries")

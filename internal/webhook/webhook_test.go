@@ -112,12 +112,14 @@ func createChoreWithSchedule(t *testing.T, env *testEnv, parentID, childID int64
 	}
 
 	dow := dayOfWeek
+	twoDaysAgo := time.Now().AddDate(0, 0, -2).Format(model.DateFormat)
 	cs := &model.ChoreSchedule{
 		ChoreID:          c.ID,
 		AssignedTo:       childID,
 		AssignmentType:   "individual",
 		DayOfWeek:        &dow,
 		PointsMultiplier: 1.0,
+		StartDate:        &twoDaysAgo,
 		DueBy:            dueBy,
 		ExpiryPenalty:    "none",
 	}

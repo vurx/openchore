@@ -116,7 +116,18 @@ export const ActivityTab: React.FC = () => {
                     <span className={styles.user}>{name}</span>
                     <span className={styles.reason}>{getReasonLabel(txn.reason)}</span>
                   </span>
-                  {txn.note && <span className={ui.rowDesc}>{txn.note}</span>}
+                  {(txn.chore_title || txn.note) && (
+                    <span className={ui.rowDesc}>
+                      {txn.chore_title ? (
+                        <>
+                          <strong>{txn.chore_title}</strong>
+                          {txn.note ? ` · ${txn.note}` : ''}
+                        </>
+                      ) : (
+                        txn.note
+                      )}
+                    </span>
+                  )}
                   <span className={styles.time}>{formatTime(txn.created_at)}</span>
                 </div>
                 <span className={clsx(styles.amount, txn.amount < 0 && styles.amountNeg)}>
