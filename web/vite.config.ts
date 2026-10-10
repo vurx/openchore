@@ -32,18 +32,22 @@ const apiTarget = process.env.VITE_API_TARGET || 'http://localhost:8080'
 export default defineConfig({
   plugins: [react(), preloadFonts()],
   server: {
+    host: '0.0.0.0',
     proxy: {
       '/api': {
         target: apiTarget,
         changeOrigin: true,
+        xfwd: true,
       },
       '/uploads': {
         target: apiTarget,
         changeOrigin: true,
+        xfwd: true,
       },
       '/tts': {
         target: apiTarget,
         changeOrigin: true,
+        xfwd: true,
       }
     }
   },
