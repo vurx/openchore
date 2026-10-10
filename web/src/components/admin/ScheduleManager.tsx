@@ -275,6 +275,8 @@ export const ScheduleManager: React.FC<{
         </button>
       </div>
 
+      {error && <p className={ui.msgError} role="alert">{error}</p>}
+
       {adding && (
         <div className={ui.inset}>
           <div className={ui.field}>

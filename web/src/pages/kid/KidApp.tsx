@@ -52,7 +52,18 @@ export const KidApp: React.FC = () => {
 
   const tab: TabId = location.pathname.startsWith('/week') ? 'week'
     : location.pathname.startsWith('/rewards') ? 'rewards' : 'today';
-  const data = useKidData(user, { week: tab === 'week', rewards: tab === 'rewards' });
+  const data = useKidData(user, { tab, week: tab === 'week', rewards: tab === 'rewards' });
+
+  const handleTabClick = useCallback((t: TabId) => {
+    if (t === 'today') {
+      data.loadChores();
+    } else if (t === 'week') {
+      data.loadWeek();
+    } else if (t === 'rewards') {
+      data.loadRewards();
+    }
+    data.loadExtras();
+  }, [data]);
 
   const [tts, setTts] = useState(() => (user ? readTts(user.id, user.age) : false));
   const [meOpen, setMeOpen] = useState(false);
@@ -196,6 +207,7 @@ export const KidApp: React.FC = () => {
       <TabBar
         active={tab}
         hrefs={HREFS}
+        onNavigate={handleTabClick}
         position="fixed"
         className={s.tabs}
         renderLink={({ tab: id, href, ...p }) => <Link key={id} to={href} {...p} />}

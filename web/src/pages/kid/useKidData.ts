@@ -5,6 +5,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { api, APIError } from '../../api';
+import type { TabId } from '../../design';
 import type {
   PointsData, RedemptionHistory, Reward, ScheduledChore, User, UserStreakData,
 } from '../../types';
@@ -17,7 +18,7 @@ export interface ToggleResult {
   needsPhoto?: boolean;
 }
 
-export function useKidData(user: User | null, opts: { week: boolean; rewards: boolean }) {
+export function useKidData(user: User | null, opts: { tab?: TabId; week?: boolean; rewards?: boolean }) {
   const { t } = useTranslation();
   const userId = user?.id;
   const [today, setToday] = useState(() => localDateStr(new Date()));
@@ -91,10 +92,40 @@ export function useKidData(user: User | null, opts: { week: boolean; rewards: bo
     }
   }, [userId]);
 
-  useEffect(() => { loadChores(); }, [loadChores]);
-  useEffect(() => { loadExtras(); }, [loadExtras]);
-  useEffect(() => { if (opts.week) loadWeek(); }, [opts.week, loadWeek]);
-  useEffect(() => { if (opts.rewards) loadRewards(); }, [opts.rewards, loadRewards]);
+  const activeTab = opts.tab ?? (opts.week ? 'week' : opts.rewards ? 'rewards' : 'today');
+
+  // Fetch fresh data whenever switching tabs
+  useEffect(() => {
+    if (!userId) return;
+    loadExtras();
+    if (activeTab === 'today') {
+      loadChores();
+    } else if (activeTab === 'week') {
+      loadWeek();
+    } else if (activeTab === 'rewards') {
+      loadRewards();
+    }
+  }, [userId, activeTab, loadChores, loadWeek, loadRewards, loadExtras]);
+
+  // Re-fetch when coming back to the foreground (e.g. iPad unlock / Safari standalone PWA resume)
+  useEffect(() => {
+    const onVisibility = () => {
+      if (document.visibilityState === 'visible' && userId) {
+        loadExtras();
+        if (activeTab === 'today') {
+          loadChores();
+        } else if (activeTab === 'week') {
+          loadWeek();
+        } else if (activeTab === 'rewards') {
+          loadRewards();
+        }
+      }
+    };
+    document.addEventListener('visibilitychange', onVisibility);
+    return () => {
+      document.removeEventListener('visibilitychange', onVisibility);
+    };
+  }, [userId, activeTab, loadChores, loadWeek, loadRewards, loadExtras]);
   // Family pots show each contributor in their colour: the profile list is
   // public and carries everyone's colour key.
   const hasPot = !!points?.active_commitments.some(c => c.pool);
@@ -294,7 +325,8 @@ export function useKidData(user: User | null, opts: { week: boolean; rewards: bo
   return {
     today, chores, weekChores, streak, points, rewards, redemptions, people,
     togglingIds, toast, showToast,
-    reloadChores, refreshAll, loadRewards, toggle,
+    loadChores, loadWeek, loadExtras, loadRewards,
+    reloadChores, refreshAll, toggle,
     commitmentFor, redeem, redeemingId, redeemedId, saveToward, savingTowardId,
     contribute, setAutoContribute, breakCommitment, busyGoals,
   };
