@@ -1084,6 +1084,35 @@ func TestRecalculateStreak(t *testing.T) {
 	}
 }
 
+func TestRecalculateStreakAwardsMilestoneOnce(t *testing.T) {
+	s := setupStore(t)
+	ctx := context.Background()
+	child := createTestUser(t, s, "Child", "child")
+	chore := createTestChore(t, s, "Daily task", 10, child.ID)
+	schedule := createTestSchedule(t, s, chore.ID, child.ID, 6) // 2026-03-28
+	if err := s.CreateStreakReward(ctx, &model.StreakReward{StreakDays: 1, BonusPoints: 5, Label: "First day"}); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.CompleteChore(ctx, &model.ChoreCompletion{
+		ChoreScheduleID: schedule.ID,
+		CompletedBy:     child.ID,
+		Status:          model.StatusApproved,
+		CompletionDate:  "2026-03-28",
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := s.RecalculateStreak(ctx, child.ID, "2026-03-28"); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.RecalculateStreak(ctx, child.ID, "2026-03-28"); err != nil {
+		t.Fatal(err)
+	}
+	if balance, _ := s.GetPointBalance(ctx, child.ID); balance != 5 {
+		t.Fatalf("expected one 5-point streak bonus after repeated recalculation, got %d", balance)
+	}
+}
+
 func TestRecalculateStreak_NoChores(t *testing.T) {
 	s := setupStore(t)
 	ctx := context.Background()
@@ -1362,6 +1391,42 @@ func TestDebitExpiryPenalty(t *testing.T) {
 	balance, _ := s.GetPointBalance(ctx, u.ID)
 	if balance != 90 {
 		t.Errorf("expected balance=90, got %d", balance)
+	}
+}
+
+func TestUncompleteFCFSFromSiblingReversesWinnersPoints(t *testing.T) {
+	s := setupStore(t)
+	ctx := context.Background()
+	parent := createTestUser(t, s, "Parent", "admin")
+	winner := createTestUser(t, s, "Winner", "child")
+	sibling := createTestUser(t, s, "Sibling", "child")
+	chore := createTestChore(t, s, "Shared chore", 10, parent.ID)
+	day := 1
+	groupID := "group-1"
+	winnerSchedule := &model.ChoreSchedule{ChoreID: chore.ID, AssignedTo: winner.ID, AssignmentType: model.AssignmentFCFS, FcfsGroupID: &groupID, DayOfWeek: &day, PointsMultiplier: 1, ExpiryPenalty: model.ExpiryBlock}
+	siblingSchedule := &model.ChoreSchedule{ChoreID: chore.ID, AssignedTo: sibling.ID, AssignmentType: model.AssignmentFCFS, FcfsGroupID: &groupID, DayOfWeek: &day, PointsMultiplier: 1, ExpiryPenalty: model.ExpiryBlock}
+	if err := s.CreateSchedule(ctx, winnerSchedule); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.CreateSchedule(ctx, siblingSchedule); err != nil {
+		t.Fatal(err)
+	}
+
+	winnerCompletion := &model.ChoreCompletion{ChoreScheduleID: winnerSchedule.ID, CompletedBy: winner.ID, Status: model.StatusApproved, CompletionDate: "2026-10-05"}
+	if err := s.CompleteChoreAndCreditPoints(ctx, winnerCompletion, 10, 0); err != nil {
+		t.Fatal(err)
+	}
+	shadow := &model.ChoreCompletion{ChoreScheduleID: siblingSchedule.ID, CompletedBy: winner.ID, Status: model.StatusApproved, CompletionDate: "2026-10-05"}
+	if err := s.CompleteChore(ctx, shadow); err != nil {
+		t.Fatal(err)
+	}
+
+	// Simulate unchecking the sibling's zero-point shadow row.
+	if err := s.UncompleteFCFSGroupAndDebitPoints(ctx, groupID, "2026-10-05", winner.ID, shadow, 0); err != nil {
+		t.Fatal(err)
+	}
+	if balance, _ := s.GetPointBalance(ctx, winner.ID); balance != 0 {
+		t.Fatalf("expected winner balance restored to 0, got %d", balance)
 	}
 }
 
@@ -2621,14 +2686,14 @@ func TestApproveCompletionWithoutApprover(t *testing.T) {
 		t.Fatalf("CompleteChore: %v", err)
 	}
 
-	if err := s.ApproveCompletionAndCreditPoints(ctx, cc.ID, nil, 5); err != nil {
+	if err := s.ApproveCompletionAndCreditPoints(ctx, cc.ID, nil, 5, 0); err != nil {
 		t.Fatalf("approve: %v", err)
 	}
 	got, _ := s.GetCompletion(ctx, cc.ID)
 	if got.Status != model.StatusApproved || got.ApprovedBy != nil {
 		t.Errorf("expected approved with no approver, got %+v", got)
 	}
-	if err := s.ApproveCompletionAndCreditPoints(ctx, cc.ID, nil, 5); !errors.Is(err, store.ErrNotPending) {
+	if err := s.ApproveCompletionAndCreditPoints(ctx, cc.ID, nil, 5, 0); !errors.Is(err, store.ErrNotPending) {
 		t.Errorf("expected ErrNotPending on a second approval, got %v", err)
 	}
 }

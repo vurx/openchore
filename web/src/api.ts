@@ -232,6 +232,11 @@ export const api = {
         method: 'POST',
         body: JSON.stringify(data),
       }),
+    updateSchedule: (choreId: number, scheduleId: number, data: Partial<ChoreSchedule>) =>
+      fetchWithAuth<ChoreSchedule>(`/chores/${choreId}/schedules/${scheduleId}`, {
+        method: 'PUT',
+        body: JSON.stringify(data),
+      }),
     deleteSchedule: (choreId: number, scheduleId: number) =>
       fetchWithAuth(`/chores/${choreId}/schedules/${scheduleId}`, { method: 'DELETE' }),
     regenerateTTS: (choreId: number) =>

@@ -446,6 +446,24 @@ func (s *Store) CreateSchedule(ctx context.Context, cs *model.ChoreSchedule) err
 	return nil
 }
 
+func (s *Store) UpdateSchedule(ctx context.Context, cs *model.ChoreSchedule) error {
+	res, err := s.db.ExecContext(ctx,
+		`UPDATE chore_schedules SET assigned_to = ?, assignment_type = ?, fcfs_group_id = ?, day_of_week = ?, specific_date = ?, available_at = ?, points_multiplier = ?, start_date = ?, end_date = ?, recurrence_interval = ?, recurrence_start = ?, due_by = ?, expiry_penalty = ?, expiry_penalty_value = ?
+		 WHERE id = ? AND chore_id = ?`,
+		cs.AssignedTo, cs.AssignmentType, cs.FcfsGroupID, cs.DayOfWeek, cs.SpecificDate, cs.AvailableAt, cs.PointsMultiplier, cs.StartDate, cs.EndDate, cs.RecurrenceInterval, cs.RecurrenceStart, cs.DueBy, cs.ExpiryPenalty, cs.ExpiryPenaltyValue, cs.ID, cs.ChoreID)
+	if err != nil {
+		return err
+	}
+	rows, err := res.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if rows == 0 {
+		return sql.ErrNoRows
+	}
+	return nil
+}
+
 func (s *Store) DeleteSchedule(ctx context.Context, id int64) error {
 	_, err := s.db.ExecContext(ctx, `DELETE FROM chore_schedules WHERE id = ?`, id)
 	return err
@@ -669,10 +687,10 @@ func (s *Store) CompleteChoreAndCreditPoints(ctx context.Context, cc *model.Chor
 	return tx.Commit()
 }
 
-// ApproveCompletionAndCreditPoints atomically updates a pending completion status to approved
-// and credits the awarded points in a single database transaction. A nil
-// approverID records an automatic (AI) approval.
-func (s *Store) ApproveCompletionAndCreditPoints(ctx context.Context, completionID int64, approverID *int64, pts int) error {
+// ApproveCompletionAndCreditPoints atomically updates a pending completion,
+// credits any award, and records any late-completion penalty. A nil approverID
+// records an automatic (AI) approval.
+func (s *Store) ApproveCompletionAndCreditPoints(ctx context.Context, completionID int64, approverID *int64, pts int, expiryPenalty int) error {
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
 		return err
@@ -692,19 +710,29 @@ func (s *Store) ApproveCompletionAndCreditPoints(ctx context.Context, completion
 		return ErrNotPending
 	}
 
-	if pts > 0 {
+	if pts > 0 || expiryPenalty > 0 {
 		var userID int64
 		if err := tx.QueryRowContext(ctx, `SELECT completed_by FROM chore_completions WHERE id = ?`, completionID).Scan(&userID); err != nil {
 			return err
 		}
-		if _, err := tx.ExecContext(ctx,
-			`INSERT INTO point_transactions (user_id, amount, reason, reference_id, note)
-			 VALUES (?, ?, ?, ?, '')`,
-			userID, pts, model.ReasonChoreComplete, completionID); err != nil {
-			return err
+		if pts > 0 {
+			if _, err := tx.ExecContext(ctx,
+				`INSERT INTO point_transactions (user_id, amount, reason, reference_id, note)
+				 VALUES (?, ?, ?, ?, '')`,
+				userID, pts, model.ReasonChoreComplete, completionID); err != nil {
+				return err
+			}
+			if err := s.applyAutoContributeTx(ctx, tx, userID, completionID, pts); err != nil {
+				return err
+			}
 		}
-		if err := s.applyAutoContributeTx(ctx, tx, userID, completionID, pts); err != nil {
-			return err
+		if expiryPenalty > 0 {
+			if _, err := tx.ExecContext(ctx,
+				`INSERT INTO point_transactions (user_id, amount, reason, reference_id, note)
+				 VALUES (?, ?, ?, ?, 'Late completion penalty')`,
+				userID, -expiryPenalty, model.ReasonExpiryPenalty, completionID); err != nil {
+				return err
+			}
 		}
 	}
 
@@ -741,6 +769,29 @@ func (s *Store) ExcuseChoreAndRefundPenalty(ctx context.Context, scheduleID int6
 
 	now := time.Now()
 	if err == nil {
+		// Excusing means the chore neither earns nor costs completion points.
+		// If it had already been approved (including a late completion), append
+		// a compensating ledger row instead of leaving stale points attached.
+		var completionNet int
+		if err := tx.QueryRowContext(ctx,
+			`SELECT COALESCE(SUM(amount), 0) FROM point_transactions
+			 WHERE reference_id = ? AND reason IN (?, ?, ?)`,
+			completionID, model.ReasonChoreComplete, model.ReasonExpiryPenalty, model.ReasonChoreUncomplete).Scan(&completionNet); err != nil {
+			return nil, err
+		}
+		if completionNet != 0 {
+			if _, err := tx.ExecContext(ctx,
+				`INSERT INTO point_transactions (user_id, amount, reason, reference_id, note)
+				 VALUES (?, ?, ?, ?, 'Completion waived: chore excused')`,
+				userID, -completionNet, model.ReasonChoreUncomplete, completionID); err != nil {
+				return nil, err
+			}
+			if completionNet > 0 {
+				if err := s.reverseAutoContributeTx(ctx, tx, userID, completionID); err != nil {
+					return nil, err
+				}
+			}
+		}
 		if _, err := tx.ExecContext(ctx,
 			`UPDATE chore_completions
 			   SET status = ?, approved_by = ?, approved_at = ?, ai_feedback = ?, uncompleted_at = NULL
@@ -988,7 +1039,6 @@ func (s *Store) ReverseAutoContributeReversals(ctx context.Context, completionID
 	return err
 }
 
-
 func (s *Store) GetSchedule(ctx context.Context, id int64) (*model.ChoreSchedule, error) {
 	cs := &model.ChoreSchedule{}
 	err := s.db.QueryRowContext(ctx,
@@ -999,6 +1049,33 @@ func (s *Store) GetSchedule(ctx context.Context, id int64) (*model.ChoreSchedule
 		return nil, nil
 	}
 	return cs, err
+}
+
+// ScheduleOccursOnDate applies the same recurrence/date rules used by the
+// dashboard query, preventing callers from minting a completion for an
+// arbitrary date that does not belong to the schedule.
+func (s *Store) ScheduleOccursOnDate(ctx context.Context, scheduleID int64, date string) (bool, error) {
+	d, err := time.Parse(model.DateFormat, date)
+	if err != nil {
+		return false, err
+	}
+	var occurs bool
+	err = s.db.QueryRowContext(ctx,
+		`SELECT EXISTS(
+			SELECT 1 FROM chore_schedules cs
+			WHERE cs.id = ?
+			  AND (
+				(cs.day_of_week = ? AND cs.specific_date IS NULL AND cs.recurrence_interval IS NULL)
+				OR (cs.specific_date = ? AND cs.recurrence_interval IS NULL)
+				OR (cs.recurrence_interval IS NOT NULL AND cs.recurrence_start IS NOT NULL
+					AND CAST((julianday(?) - julianday(cs.recurrence_start)) AS INTEGER) >= 0
+					AND CAST((julianday(?) - julianday(cs.recurrence_start)) AS INTEGER) % cs.recurrence_interval = 0)
+			  )
+			  AND (cs.start_date IS NULL OR cs.start_date <= ?)
+			  AND (cs.end_date IS NULL OR cs.end_date >= ?)
+		)`,
+		scheduleID, int(d.Weekday()), date, date, date, date, date).Scan(&occurs)
+	return occurs, err
 }
 
 // GetCompletionForScheduleDate returns the completion row for a schedule+date,
@@ -1032,10 +1109,10 @@ func (s *Store) GetCompletion(ctx context.Context, id int64) (*model.ChoreComple
 }
 
 type PendingCompletionRow struct {
-	ID             int64     `json:"id"`
-	ChoreID        int64     `json:"chore_id"`
-	ChoreTitle     string    `json:"chore_title"`
-	ChildName      string    `json:"child_name"`
+	ID         int64  `json:"id"`
+	ChoreID    int64  `json:"chore_id"`
+	ChoreTitle string `json:"chore_title"`
+	ChildName  string `json:"child_name"`
 	// AssignedUserID is the user_id the underlying schedule is assigned to
 	// (i.e. the kid the chore "belongs to"), which may differ from the user
 	// who clicked "complete" (see ChildName) in sibling/FCFS scenarios.
@@ -1247,14 +1324,15 @@ func (s *Store) DebitChorePoints(ctx context.Context, userID, completionID int64
 	return tx.Commit()
 }
 
-// GetNetPointsForCompletion returns the net points credited/debited for a specific completion.
-// Positive means points were earned, negative means a penalty was applied.
+// GetNetPointsForCompletion returns the current net ledger effect of a
+// completion. Reversal rows are included so an uncompleted chore nets to zero
+// while retaining the full audit trail.
 func (s *Store) GetNetPointsForCompletion(ctx context.Context, completionID int64) (int, error) {
 	var total int
 	err := s.db.QueryRowContext(ctx,
 		`SELECT COALESCE(SUM(amount), 0) FROM point_transactions
-		 WHERE reference_id = ? AND reason IN (?, ?)`,
-		completionID, model.ReasonChoreComplete, model.ReasonExpiryPenalty).Scan(&total)
+		 WHERE reference_id = ? AND reason IN (?, ?, ?)`,
+		completionID, model.ReasonChoreComplete, model.ReasonExpiryPenalty, model.ReasonChoreUncomplete).Scan(&total)
 	return total, err
 }
 
@@ -1479,12 +1557,12 @@ func (s *Store) SetRewardAssignments(ctx context.Context, rewardID int64, assign
 
 // UpdateReward applies admin edits and, when the shareable flag transitions,
 // keeps existing kid commitments coherent:
-//   * shareable false → true: any active personal commits on this reward
+//   - shareable false → true: any active personal commits on this reward
 //     migrate into a new shared pool so siblings end up in the same pool
 //     instead of disconnected personal silos. Each kid's saved amount is
 //     preserved (it's derived from ledger rows referencing the commitment
 //     row, which we don't touch).
-//   * shareable true → false: refuse if there's an active shared pool with
+//   - shareable true → false: refuse if there's an active shared pool with
 //     contributors — the admin must redeem or cancel it first. Otherwise
 //     untying the pool from the reward leaves a half-state nobody can fix.
 func (s *Store) UpdateReward(ctx context.Context, r *model.Reward) error {
@@ -2650,7 +2728,7 @@ func (s *Store) RecalculateStreak(ctx context.Context, userID int64, today strin
 		}
 		allDone := true
 		for _, c := range nonBonus {
-			if !c.Completed {
+			if !c.Completed || c.CompletionStatus == nil || (*c.CompletionStatus != model.StatusApproved && *c.CompletionStatus != model.StatusExcused) {
 				allDone = false
 				break
 			}
@@ -2674,7 +2752,7 @@ func (s *Store) RecalculateStreak(ctx context.Context, userID int64, today strin
 	}
 	todayComplete := len(todayNonBonus) > 0
 	for _, c := range todayNonBonus {
-		if !c.Completed {
+		if !c.Completed || c.CompletionStatus == nil || (*c.CompletionStatus != model.StatusApproved && *c.CompletionStatus != model.StatusExcused) {
 			todayComplete = false
 			break
 		}
@@ -2709,7 +2787,33 @@ func (s *Store) RecalculateStreak(ctx context.Context, userID int64, today strin
 			updated_at = CURRENT_TIMESTAMP`,
 		userID, streak, streak, startDate, lastCompleted,
 		streak, streak, startDate, lastCompleted)
-	return err
+	if err != nil {
+		return err
+	}
+
+	// Award every milestone reached in this streak exactly once. Including
+	// the streak start date in the key permits earning the same milestone in
+	// a future streak while making repeated recalculations idempotent.
+	if streak > 0 && startDate != nil {
+		rewards, err := s.ListStreakRewards(ctx)
+		if err != nil {
+			return err
+		}
+		for _, reward := range rewards {
+			if reward.StreakDays > streak {
+				break
+			}
+			key := fmt.Sprintf("streak_bonus:%d:%d:%s", userID, reward.ID, *startDate)
+			_, err := s.db.ExecContext(ctx,
+				`INSERT INTO point_transactions (user_id, amount, reason, reference_id, note, idempotency_key)
+				 VALUES (?, ?, ?, ?, ?, ?)`,
+				userID, reward.BonusPoints, model.ReasonStreakBonus, reward.ID, reward.Label, key)
+			if err != nil && !isUniqueConstraintErr(err) {
+				return err
+			}
+		}
+	}
+	return nil
 }
 
 func (s *Store) ListStreakRewards(ctx context.Context) ([]model.StreakReward, error) {
@@ -3293,12 +3397,45 @@ func (s *Store) UncompleteByFCFSGroup(ctx context.Context, groupID, date string)
 
 // UncompleteFCFSGroupAndDebitPoints atomically deletes all completions for an FCFS group on a given date
 // and debits any net points that were credited for the completion.
-func (s *Store) UncompleteFCFSGroupAndDebitPoints(ctx context.Context, groupID, date string, userID int64, existing *model.ChoreCompletion, netPoints int) error {
+func (s *Store) UncompleteFCFSGroupAndDebitPoints(ctx context.Context, groupID, date string, _ int64, _ *model.ChoreCompletion, _ int) error {
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
 		return err
 	}
 	defer tx.Rollback()
+
+	// The selected schedule may be a zero-point sibling shadow rather than
+	// the completion that actually earned (or lost) points. Resolve every
+	// point-bearing completion in the group before deleting the rows.
+	type groupCompletion struct {
+		id     int64
+		userID int64
+		net    int
+	}
+	rows, err := tx.QueryContext(ctx,
+		`SELECT cc.id, cc.completed_by,
+		        COALESCE(SUM(CASE WHEN pt.reason IN (?, ?) THEN pt.amount ELSE 0 END), 0)
+		 FROM chore_completions cc
+		 JOIN chore_schedules cs ON cs.id = cc.chore_schedule_id
+		 LEFT JOIN point_transactions pt ON pt.reference_id = cc.id
+		 WHERE cs.fcfs_group_id = ? AND cc.completion_date = ?
+		 GROUP BY cc.id, cc.completed_by`,
+		model.ReasonChoreComplete, model.ReasonExpiryPenalty, groupID, date)
+	if err != nil {
+		return err
+	}
+	var completions []groupCompletion
+	for rows.Next() {
+		var c groupCompletion
+		if err := rows.Scan(&c.id, &c.userID, &c.net); err != nil {
+			rows.Close()
+			return err
+		}
+		completions = append(completions, c)
+	}
+	if err := rows.Close(); err != nil {
+		return err
+	}
 
 	if _, err := tx.ExecContext(ctx,
 		`DELETE FROM chore_completions WHERE chore_schedule_id IN (
@@ -3308,14 +3445,17 @@ func (s *Store) UncompleteFCFSGroupAndDebitPoints(ctx context.Context, groupID, 
 		return err
 	}
 
-	if existing != nil && netPoints != 0 && userID > 0 {
+	for _, completion := range completions {
+		if completion.net == 0 || completion.userID <= 0 {
+			continue
+		}
 		if _, err := tx.ExecContext(ctx,
 			`INSERT INTO point_transactions (user_id, amount, reason, reference_id, note)
 			 VALUES (?, ?, ?, ?, '')`,
-			userID, -netPoints, model.ReasonChoreUncomplete, existing.ID); err != nil {
+			completion.userID, -completion.net, model.ReasonChoreUncomplete, completion.id); err != nil {
 			return err
 		}
-		if err := s.reverseAutoContributeTx(ctx, tx, userID, existing.ID); err != nil {
+		if err := s.reverseAutoContributeTx(ctx, tx, completion.userID, completion.id); err != nil {
 			return err
 		}
 	}

@@ -35,6 +35,7 @@ interface ScheduleData {
   dueBy: string;
   expiryPenalty: 'block' | 'no_points' | 'penalty';
   expiryPenaltyValue: number;
+  pointsMultiplier: number;
 }
 
 interface Props {
@@ -58,7 +59,7 @@ const defaultScheduleData: ScheduleData = {
   selectedUsers: [], scheduleType: 'weekly', selectedDays: [],
   interval: 2, intervalStart: localDateStr(new Date()),
   specificDate: localDateStr(new Date()),
-  availableAt: '', dueBy: '', expiryPenalty: 'block', expiryPenaltyValue: 5,
+  availableAt: '', dueBy: '', expiryPenalty: 'block', expiryPenaltyValue: 5, pointsMultiplier: 1,
 };
 
 const CreateChoreWizard: React.FC<Props> = ({ isOpen, onClose, onComplete, users }) => {
@@ -104,7 +105,7 @@ const CreateChoreWizard: React.FC<Props> = ({ isOpen, onClose, onComplete, users
     (schedule.scheduleType === 'weekly' && schedule.selectedDays.length > 0) ||
     (schedule.scheduleType === 'interval' && schedule.interval > 0) ||
     (schedule.scheduleType === 'oneoff' && schedule.specificDate)
-  ));
+  )) && schedule.pointsMultiplier > 0 && (!schedule.dueBy || schedule.expiryPenalty !== 'penalty' || schedule.expiryPenaltyValue > 0);
 
   const toggleUser = (id: number) => {
     setSchedule(s => ({
@@ -143,7 +144,7 @@ const CreateChoreWizard: React.FC<Props> = ({ isOpen, onClose, onComplete, users
         icon: chore.icon,
         points_value: chore.points,
         missed_penalty_value: chore.missedPenalty || 0,
-        estimated_minutes: chore.estimatedMinutes || undefined,
+        estimated_minutes: chore.estimatedMinutes,
         requires_approval: chore.requiresApproval,
         requires_photo: chore.requiresPhoto,
         photo_source: chore.requiresPhoto ? chore.photoSource : 'child',
@@ -157,7 +158,7 @@ const CreateChoreWizard: React.FC<Props> = ({ isOpen, onClose, onComplete, users
           assignment_type: 'individual' as const,
           available_at: schedule.availableAt || undefined,
           due_by: schedule.dueBy || undefined,
-          points_multiplier: 1,
+          points_multiplier: schedule.pointsMultiplier,
           ...penaltyFields,
         };
 
@@ -341,6 +342,12 @@ const CreateChoreWizard: React.FC<Props> = ({ isOpen, onClose, onComplete, users
         </label>
       </div>
 
+      <label className={styles.formGroup}>
+        <span className={styles.label}>{t('admin.createChore.schedule.multiplier')}</span>
+        <input className={styles.input} type="number" min={0.01} step={0.01} value={schedule.pointsMultiplier} onChange={e => setSchedule(s => ({ ...s, pointsMultiplier: parseFloat(e.target.value) || 0 }))} />
+        <span className={styles.helpText}>{t('admin.createChore.schedule.multiplierHelp')}</span>
+      </label>
+
       {schedule.dueBy && (
         <div className={styles.formRow}>
           <label className={styles.formGroup}>
@@ -451,6 +458,10 @@ const CreateChoreWizard: React.FC<Props> = ({ isOpen, onClose, onComplete, users
                   <dd className={styles.reviewValue}>{schedule.dueBy}</dd>
                 </div>
               )}
+              <div className={styles.reviewRow}>
+                <dt className={styles.reviewLabel}>{t('admin.createChore.review.multiplier')}</dt>
+                <dd className={styles.reviewValue}>×{schedule.pointsMultiplier}</dd>
+              </div>
             </dl>
           ) : (
             <p className={styles.noSchedule}>{t('admin.createChore.review.noSchedule')}</p>
