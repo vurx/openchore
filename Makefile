@@ -1,7 +1,16 @@
-.PHONY: all api ui dev dev-ai ai-up ai-down install build test test-e2e test-e2e-install test-all clean help docker-build docker-build-multiarch docker-up docker-down docker-build-web docker-push-web docker-push-web-multiarch push-web
+.PHONY: all api ui dev dev-ai ai-up ai-down install build test test-e2e test-e2e-install test-all clean help \
+	docker-build docker-build-multiarch docker-up docker-down \
+	docker-build-api docker-push-api docker-push-api-multiarch push-api \
+	docker-build-web docker-push-web docker-push-web-multiarch push-web \
+	docker-build-all docker-push-all docker-push-all-multiarch push-all
 
-# Web Docker image repository
-WEB_IMAGE ?= harbor.coffee-iot.com:8888/vvvv/openchore-web:latest
+# Docker image repository and tag configuration (can be overridden via CLI, e.g. make push-all REGISTRY=... TAG=...)
+REGISTRY ?= harbor.coffee-iot.com:8888/vvvv
+TAG ?= latest
+PLATFORMS ?= linux/amd64,linux/arm64
+
+API_IMAGE ?= $(REGISTRY)/openchore-api:$(TAG)
+WEB_IMAGE ?= $(REGISTRY)/openchore-web:$(TAG)
 
 # Default target
 all: help
@@ -79,6 +88,18 @@ docker-up:
 docker-down:
 	docker compose down
 
+# API image targets
+docker-build-api:
+	docker build -t $(API_IMAGE) .
+
+docker-push-api: docker-build-api
+	docker push $(API_IMAGE)
+
+docker-push-api-multiarch:
+	docker buildx build --platform $(PLATFORMS) -t $(API_IMAGE) --push .
+
+push-api: docker-push-api
+
 # Web image targets
 docker-build-web:
 	docker build -t $(WEB_IMAGE) ./web
@@ -87,9 +108,18 @@ docker-push-web: docker-build-web
 	docker push $(WEB_IMAGE)
 
 docker-push-web-multiarch:
-	docker buildx build --platform linux/amd64,linux/arm64 -t $(WEB_IMAGE) --push ./web
+	docker buildx build --platform $(PLATFORMS) -t $(WEB_IMAGE) --push ./web
 
 push-web: docker-push-web
+
+# Combined image targets
+docker-build-all: docker-build-api docker-build-web
+
+docker-push-all: docker-push-api docker-push-web
+
+docker-push-all-multiarch: docker-push-api-multiarch docker-push-web-multiarch
+
+push-all: docker-push-all
 
 # Show help
 help:
@@ -102,12 +132,21 @@ help:
 	@echo "  ai-down - Stop the local AI services"
 	@echo "  install - Install dependencies for both API and UI"
 	@echo "  build   - Build both API and UI"
-	@echo "  docker-build           - Build Docker images for current host (Mac arm64 / Linux amd64)"
-	@echo "  docker-build-multiarch - Build multi-arch Docker images (linux/amd64,linux/arm64)"
-	@echo "  docker-push-web        - Build and push web image to Harbor ($(WEB_IMAGE))"
-	@echo "  docker-push-web-multiarch - Build and push multi-arch web image to Harbor"
-	@echo "  docker-up              - Start services with Docker Compose (builds locally)"
-	@echo "  docker-down            - Stop Docker Compose services"
+	@echo ""
+	@echo "Docker Build & Push targets:"
+	@echo "  docker-build              - Build Docker compose images locally"
+	@echo "  docker-up / docker-down   - Start / Stop Docker Compose services"
+	@echo "  push-api                  - Build and push API image ($(API_IMAGE))"
+	@echo "  push-web                  - Build and push Web image ($(WEB_IMAGE))"
+	@echo "  push-all                  - Build and push both API and Web images"
+	@echo "  docker-push-api-multiarch - Build & push multi-arch API ($(PLATFORMS))"
+	@echo "  docker-push-web-multiarch - Build & push multi-arch Web ($(PLATFORMS))"
+	@echo "  docker-push-all-multiarch - Build & push multi-arch both API and Web"
+	@echo ""
+	@echo "  Override registry/tag example:"
+	@echo "    make push-all REGISTRY=your-registry.com/repo TAG=v1.0.0"
+	@echo ""
+	@echo "Test & Clean targets:"
 	@echo "  test              - Run Go tests"
 	@echo "  test-e2e-install  - Install e2e test dependencies (Playwright + Chromium)"
 	@echo "  test-e2e          - Run e2e tests (starts servers automatically)"
