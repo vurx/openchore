@@ -1,4 +1,7 @@
-.PHONY: all api ui dev dev-ai ai-up ai-down install build test test-e2e test-e2e-install test-all clean help
+.PHONY: all api ui dev dev-ai ai-up ai-down install build test test-e2e test-e2e-install test-all clean help docker-build docker-build-multiarch docker-up docker-down docker-build-web docker-push-web docker-push-web-multiarch push-web
+
+# Web Docker image repository
+WEB_IMAGE ?= harbor.coffee-iot.com:8888/vvvv/openchore-web:latest
 
 # Default target
 all: help
@@ -76,6 +79,18 @@ docker-up:
 docker-down:
 	docker compose down
 
+# Web image targets
+docker-build-web:
+	docker build -t $(WEB_IMAGE) ./web
+
+docker-push-web: docker-build-web
+	docker push $(WEB_IMAGE)
+
+docker-push-web-multiarch:
+	docker buildx build --platform linux/amd64,linux/arm64 -t $(WEB_IMAGE) --push ./web
+
+push-web: docker-push-web
+
 # Show help
 help:
 	@echo "Available targets:"
@@ -89,6 +104,8 @@ help:
 	@echo "  build   - Build both API and UI"
 	@echo "  docker-build           - Build Docker images for current host (Mac arm64 / Linux amd64)"
 	@echo "  docker-build-multiarch - Build multi-arch Docker images (linux/amd64,linux/arm64)"
+	@echo "  docker-push-web        - Build and push web image to Harbor ($(WEB_IMAGE))"
+	@echo "  docker-push-web-multiarch - Build and push multi-arch web image to Harbor"
 	@echo "  docker-up              - Start services with Docker Compose (builds locally)"
 	@echo "  docker-down            - Stop Docker Compose services"
 	@echo "  test              - Run Go tests"
