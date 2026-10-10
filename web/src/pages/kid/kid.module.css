@@ -8,10 +8,13 @@
 .root {
   min-height: 100vh;
   min-height: 100dvh;
+  max-width: 100%;
+  overflow-x: clip;
 }
 
 .main {
   box-sizing: border-box;
+  width: 100%;
   max-width: 560px;
   margin: 0 auto;
   padding: calc(var(--space-4) + env(safe-area-inset-top, 0px)) var(--space-5)
@@ -99,10 +102,10 @@
 }
 
 /* ---------- Today ---------- */
-.today { display: flex; flex-direction: column; }
-.todayHero { display: flex; flex-direction: column; }
+.today { display: flex; flex-direction: column; min-width: 0; }
+.todayHero { display: flex; flex-direction: column; min-width: 0; }
 .todayHero > h1 { margin-bottom: var(--space-4); }
-.progress { margin-bottom: var(--space-2); }
+.progress { min-width: 0; max-width: 100%; margin-bottom: var(--space-2); }
 .todayLine {
   display: flex;
   flex-wrap: wrap;

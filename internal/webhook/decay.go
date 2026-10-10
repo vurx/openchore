@@ -111,7 +111,10 @@ func (pdc *PointsDecayChecker) check(ctx context.Context) {
 				continue
 			}
 			nonBonusCount++
-			if !c.Completed {
+			// Pending work counts as submitted while it waits for review, but a
+			// rejected attempt is still a missed chore.
+			rejected := c.CompletionStatus != nil && *c.CompletionStatus == model.StatusRejected
+			if !c.Completed || rejected {
 				missedTitles = append(missedTitles, c.Title)
 			}
 		}

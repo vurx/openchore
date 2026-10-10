@@ -735,6 +735,30 @@ func TestDecayChecker_PenalizeMissedCoreChore(t *testing.T) {
 	}
 }
 
+func TestDecayChecker_RejectedAttemptStillCountsAsMissed(t *testing.T) {
+	env := setupTest(t)
+	ctx := context.Background()
+	parentID := createParentUser(t, env, "Parent")
+	childID := createChildUser(t, env, "Child")
+	yesterday := time.Now().AddDate(0, 0, -1)
+	_, scheduleID := createChoreWithSchedule(t, env, parentID, childID, "required", int(yesterday.Weekday()), nil, 5)
+
+	if err := env.store.CompleteChore(ctx, &model.ChoreCompletion{
+		ChoreScheduleID: scheduleID,
+		CompletedBy:     childID,
+		Status:          model.StatusRejected,
+		CompletionDate:  yesterday.Format(model.DateFormat),
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	dc := NewDecayChecker(env.store, env.dispatcher)
+	dc.check(ctx)
+	if balance, _ := env.store.GetPointBalance(ctx, childID); balance != -5 {
+		t.Fatalf("expected rejected attempt to receive missed penalty, got balance %d", balance)
+	}
+}
+
 func TestDecayChecker_NoPenaltyForBonusChore(t *testing.T) {
 	env := setupTest(t)
 

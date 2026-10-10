@@ -285,9 +285,9 @@ func TestChoreCRUD(t *testing.T) {
 	}
 }
 
-// TestChoreUpdatePointsAndPenaltyZeroing verifies that points_value and
-// missed_penalty_value can be explicitly set to 0 via a PUT, and that a
-// partial update that omits those fields leaves them untouched.
+// TestChoreUpdatePointsAndPenaltyZeroing verifies that numeric chore fields
+// can be explicitly set to 0 via a PUT, and that a partial update that omits
+// those fields leaves them untouched.
 func TestChoreUpdatePointsAndPenaltyZeroing(t *testing.T) {
 	env := setupTest(t)
 	env.createAdmin(t)
@@ -298,6 +298,7 @@ func TestChoreUpdatePointsAndPenaltyZeroing(t *testing.T) {
 		"category":             "core",
 		"points_value":         10,
 		"missed_penalty_value": 5,
+		"estimated_minutes":    30,
 	}, adminHeaders())
 	if resp.StatusCode != http.StatusCreated {
 		t.Fatalf("expected 201, got %d", resp.StatusCode)
@@ -320,11 +321,15 @@ func TestChoreUpdatePointsAndPenaltyZeroing(t *testing.T) {
 	if chore["missed_penalty_value"].(float64) != 5 {
 		t.Errorf("partial update clobbered missed_penalty_value: got %v, want 5", chore["missed_penalty_value"])
 	}
+	if chore["estimated_minutes"].(float64) != 30 {
+		t.Errorf("partial update clobbered estimated_minutes: got %v, want 30", chore["estimated_minutes"])
+	}
 
 	// Explicit zero: both fields should be cleared.
 	resp = env.request(t, "PUT", fmt.Sprintf("/api/chores/%d", choreID), map[string]any{
 		"points_value":         0,
 		"missed_penalty_value": 0,
+		"estimated_minutes":    0,
 	}, adminHeaders())
 	if resp.StatusCode != http.StatusOK {
 		t.Fatalf("zero update: expected 200, got %d", resp.StatusCode)
@@ -335,6 +340,9 @@ func TestChoreUpdatePointsAndPenaltyZeroing(t *testing.T) {
 	}
 	if chore["missed_penalty_value"].(float64) != 0 {
 		t.Errorf("explicit zero was ignored for missed_penalty_value: got %v, want 0", chore["missed_penalty_value"])
+	}
+	if chore["estimated_minutes"].(float64) != 0 {
+		t.Errorf("explicit zero was ignored for estimated_minutes: got %v, want 0", chore["estimated_minutes"])
 	}
 }
 
@@ -1335,6 +1343,61 @@ func TestDeleteSchedule(t *testing.T) {
 	}
 }
 
+func TestUpdateSchedule(t *testing.T) {
+	env := setupTest(t)
+	env.createAdmin(t)
+	kidID := env.createChild(t, "Kid")
+
+	env.request(t, "POST", "/api/chores", map[string]any{
+		"title": "Test", "category": "core",
+	}, adminHeaders())
+	env.request(t, "POST", "/api/chores/1/schedules", map[string]any{
+		"assigned_to": kidID, "day_of_week": 1,
+	}, adminHeaders())
+
+	resp := env.expectStatus(t, "PUT", "/api/chores/1/schedules/1", map[string]any{
+		"assigned_to": kidID, "day_of_week": 3, "available_at": "08:00",
+		"due_by": "17:00", "expiry_penalty": "penalty", "expiry_penalty_value": 2,
+		"points_multiplier": 1.5,
+	}, adminHeaders(), http.StatusOK)
+	var schedule map[string]any
+	decodeBody(t, resp, &schedule)
+	if schedule["day_of_week"] != float64(3) || schedule["points_multiplier"] != 1.5 || schedule["expiry_penalty_value"] != float64(2) {
+		t.Fatalf("unexpected updated schedule: %#v", schedule)
+	}
+
+	resp = env.expectStatus(t, "GET", "/api/chores/1/schedules", nil, adminHeaders(), http.StatusOK)
+	var schedules []map[string]any
+	decodeBody(t, resp, &schedules)
+	if len(schedules) != 1 || schedules[0]["available_at"] != "08:00" || schedules[0]["due_by"] != "17:00" {
+		t.Fatalf("updated schedule was not persisted: %#v", schedules)
+	}
+}
+
+func TestUpdateAndDeleteScheduleRequireMatchingChore(t *testing.T) {
+	env := setupTest(t)
+	env.createAdmin(t)
+	kidID := env.createChild(t, "Kid")
+	for _, title := range []string{"One", "Two"} {
+		env.request(t, "POST", "/api/chores", map[string]any{"title": title, "category": "core"}, adminHeaders())
+	}
+	env.request(t, "POST", "/api/chores/1/schedules", map[string]any{
+		"assigned_to": kidID, "day_of_week": 1,
+	}, adminHeaders())
+
+	env.expectStatus(t, "PUT", "/api/chores/2/schedules/1", map[string]any{
+		"assigned_to": kidID, "day_of_week": 2,
+	}, adminHeaders(), http.StatusNotFound)
+	env.expectStatus(t, "DELETE", "/api/chores/2/schedules/1", nil, adminHeaders(), http.StatusNotFound)
+
+	resp := env.expectStatus(t, "GET", "/api/chores/1/schedules", nil, adminHeaders(), http.StatusOK)
+	var schedules []any
+	decodeBody(t, resp, &schedules)
+	if len(schedules) != 1 {
+		t.Fatalf("schedule should remain after cross-chore requests, got %d", len(schedules))
+	}
+}
+
 func TestSchedulePointsMultiplier(t *testing.T) {
 	env := setupTest(t)
 	env.createAdmin(t)
@@ -1345,8 +1408,8 @@ func TestSchedulePointsMultiplier(t *testing.T) {
 	}, adminHeaders())
 
 	resp := env.expectStatus(t, "POST", "/api/chores/1/schedules", map[string]any{
-		"assigned_to":      kidID,
-		"day_of_week":      3,
+		"assigned_to":       kidID,
+		"day_of_week":       3,
 		"points_multiplier": 2.0,
 	}, adminHeaders(), http.StatusCreated)
 	var schedule map[string]any
@@ -1718,6 +1781,181 @@ func TestExpiryPenaltyNotExpired(t *testing.T) {
 	if pts["balance"].(float64) != 10 {
 		t.Fatalf("expected 10 points (not expired), got %v", pts["balance"])
 	}
+}
+
+func TestExpiryPenaltyAppliedWhenLateCompletionNeedsApproval(t *testing.T) {
+	env := setupTest(t)
+	env.createAdmin(t)
+	kidID := env.createChild(t, "Kid")
+	today := time.Now().Format(model.DateFormat)
+
+	env.request(t, "POST", "/api/chores", map[string]any{
+		"title": "Approval task", "category": "required", "points_value": 10, "requires_approval": true,
+	}, adminHeaders())
+	env.request(t, "POST", "/api/chores/1/schedules", map[string]any{
+		"assigned_to": kidID, "specific_date": today, "due_by": "00:01",
+		"expiry_penalty": "penalty", "expiry_penalty_value": 2,
+	}, adminHeaders())
+
+	env.expectStatus(t, "POST", "/api/schedules/1/complete", map[string]any{
+		"completed_by": kidID, "completion_date": today,
+	}, childHeaders(kidID), http.StatusCreated)
+
+	resp := env.expectStatus(t, "GET", "/api/completions/pending", nil, adminHeaders(), http.StatusOK)
+	var pending []map[string]any
+	decodeBody(t, resp, &pending)
+	if len(pending) != 1 {
+		t.Fatalf("expected one pending completion, got %d", len(pending))
+	}
+	completionID := int64(pending[0]["id"].(float64))
+	env.expectStatus(t, "POST", fmt.Sprintf("/api/completions/%d/approve", completionID), nil, adminHeaders(), http.StatusNoContent)
+
+	resp = env.expectStatus(t, "GET", fmt.Sprintf("/api/users/%d/points", kidID), nil, adminHeaders(), http.StatusOK)
+	var points map[string]any
+	decodeBody(t, resp, &points)
+	if points["balance"].(float64) != -2 {
+		t.Fatalf("expected late approved completion to debit 2 points, got %v", points["balance"])
+	}
+}
+
+func TestBackdatedCompletionCannotBypassExpiryPenalty(t *testing.T) {
+	env := setupTest(t)
+	env.createAdmin(t)
+	kidID := env.createChild(t, "Kid")
+	yesterday := time.Now().AddDate(0, 0, -1).Format(model.DateFormat)
+
+	env.request(t, "POST", "/api/chores", map[string]any{
+		"title": "Backdated task", "category": "required", "points_value": 10,
+	}, adminHeaders())
+	env.request(t, "POST", "/api/chores/1/schedules", map[string]any{
+		"assigned_to": kidID, "specific_date": yesterday, "due_by": "23:59",
+		"expiry_penalty": "penalty", "expiry_penalty_value": 2,
+	}, adminHeaders())
+
+	env.expectStatus(t, "POST", "/api/schedules/1/complete", map[string]any{
+		"completed_by": kidID, "completion_date": yesterday,
+	}, adminHeaders(), http.StatusCreated)
+
+	resp := env.expectStatus(t, "GET", fmt.Sprintf("/api/users/%d/points", kidID), nil, adminHeaders(), http.StatusOK)
+	var points map[string]any
+	decodeBody(t, resp, &points)
+	if points["balance"].(float64) != -2 {
+		t.Fatalf("expected backdated late completion to debit 2 points, got %v", points["balance"])
+	}
+}
+
+func TestLateCorePenaltySurvivesGateOpening(t *testing.T) {
+	env := setupTest(t)
+	env.createAdmin(t)
+	kidID := env.createChild(t, "Kid")
+	today := time.Now().Format(model.DateFormat)
+
+	// Required (10) keeps the Core gate closed initially.
+	env.request(t, "POST", "/api/chores", map[string]any{
+		"title": "Required", "category": "required", "points_value": 10,
+	}, adminHeaders())
+	env.request(t, "POST", "/api/chores/1/schedules", map[string]any{
+		"assigned_to": kidID, "specific_date": today,
+	}, adminHeaders())
+	env.request(t, "POST", "/api/chores", map[string]any{
+		"title": "Late core", "category": "core", "points_value": 10,
+	}, adminHeaders())
+	env.request(t, "POST", "/api/chores/2/schedules", map[string]any{
+		"assigned_to": kidID, "specific_date": today, "due_by": "00:01",
+		"expiry_penalty": "penalty", "expiry_penalty_value": 2,
+	}, adminHeaders())
+
+	// Late Core is -2 even though its normal reward is also gated.
+	env.expectStatus(t, "POST", "/api/schedules/2/complete", map[string]any{
+		"completed_by": kidID, "completion_date": today,
+	}, adminHeaders(), http.StatusCreated)
+	// Required opens the gate, but must not retroactively erase the late policy.
+	env.expectStatus(t, "POST", "/api/schedules/1/complete", map[string]any{
+		"completed_by": kidID, "completion_date": today,
+	}, adminHeaders(), http.StatusCreated)
+
+	resp := env.expectStatus(t, "GET", fmt.Sprintf("/api/users/%d/points", kidID), nil, adminHeaders(), http.StatusOK)
+	var points map[string]any
+	decodeBody(t, resp, &points)
+	if points["balance"].(float64) != 8 {
+		t.Fatalf("expected required +10 and persistent late core -2, got %v", points["balance"])
+	}
+}
+
+func TestRepeatedLateCompleteUncompleteDoesNotStackPenalty(t *testing.T) {
+	env := setupTest(t)
+	env.createAdmin(t)
+	kidID := env.createChild(t, "Kid")
+	today := time.Now().Format(model.DateFormat)
+
+	env.request(t, "POST", "/api/chores", map[string]any{
+		"title": "Repeat", "category": "required", "points_value": 10,
+	}, adminHeaders())
+	env.request(t, "POST", "/api/chores/1/schedules", map[string]any{
+		"assigned_to": kidID, "specific_date": today, "due_by": "00:01",
+		"expiry_penalty": "penalty", "expiry_penalty_value": 2,
+	}, adminHeaders())
+
+	for i := 0; i < 3; i++ {
+		env.expectStatus(t, "POST", "/api/schedules/1/complete", map[string]any{
+			"completed_by": kidID, "completion_date": today,
+		}, adminHeaders(), http.StatusCreated)
+		resp := env.expectStatus(t, "GET", fmt.Sprintf("/api/users/%d/points", kidID), nil, adminHeaders(), http.StatusOK)
+		var points map[string]any
+		decodeBody(t, resp, &points)
+		if points["balance"].(float64) != -2 {
+			t.Fatalf("cycle %d: expected exactly one 2-point penalty, got %v", i+1, points["balance"])
+		}
+		if i < 2 {
+			env.expectStatus(t, "DELETE", fmt.Sprintf("/api/schedules/1/complete?date=%s", today), nil, adminHeaders(), http.StatusNoContent)
+		}
+	}
+	var lateRows, undoRows int
+	if err := env.db.QueryRow(`SELECT COUNT(*) FROM point_transactions WHERE reason = 'expiry_penalty'`).Scan(&lateRows); err != nil {
+		t.Fatal(err)
+	}
+	if err := env.db.QueryRow(`SELECT COUNT(*) FROM point_transactions WHERE reason = 'chore_uncomplete'`).Scan(&undoRows); err != nil {
+		t.Fatal(err)
+	}
+	if lateRows != 3 || undoRows != 2 {
+		t.Fatalf("expected complete audit trail (3 late, 2 undo), got late=%d undo=%d", lateRows, undoRows)
+	}
+}
+
+func TestAdminCannotRedirectCompletionPoints(t *testing.T) {
+	env := setupTest(t)
+	env.createAdmin(t)
+	assignedID := env.createChild(t, "Assigned")
+	otherID := env.createChild(t, "Other")
+	today := time.Now().Format(model.DateFormat)
+
+	env.request(t, "POST", "/api/chores", map[string]any{
+		"title": "Assigned work", "category": "required", "points_value": 10,
+	}, adminHeaders())
+	env.request(t, "POST", "/api/chores/1/schedules", map[string]any{
+		"assigned_to": assignedID, "specific_date": today,
+	}, adminHeaders())
+
+	env.expectStatus(t, "POST", "/api/schedules/1/complete", map[string]any{
+		"completed_by": otherID, "completion_date": today,
+	}, adminHeaders(), http.StatusForbidden)
+}
+
+func TestCannotCompleteScheduleForDifferentDate(t *testing.T) {
+	env := setupTest(t)
+	env.createAdmin(t)
+	kidID := env.createChild(t, "Kid")
+	yesterday := time.Now().AddDate(0, 0, -1).Format(model.DateFormat)
+	today := time.Now().Format(model.DateFormat)
+	env.request(t, "POST", "/api/chores", map[string]any{
+		"title": "One day only", "category": "required", "points_value": 10,
+	}, adminHeaders())
+	env.request(t, "POST", "/api/chores/1/schedules", map[string]any{
+		"assigned_to": kidID, "specific_date": yesterday,
+	}, adminHeaders())
+	env.expectStatus(t, "POST", "/api/schedules/1/complete", map[string]any{
+		"completed_by": kidID, "completion_date": today,
+	}, adminHeaders(), http.StatusUnprocessableEntity)
 }
 
 func TestExpiryPenaltyValidation(t *testing.T) {
@@ -2385,7 +2623,6 @@ func TestRequiredChoresGateCoreChorePoints(t *testing.T) {
 		t.Fatalf("expected 17 committed after rechecking core chore, got %v", pts["committed"])
 	}
 }
-
 
 // =================== BCRYPT PASSCODE TESTS ===================
 
@@ -4440,7 +4677,7 @@ func TestRandomOrderCompletionsAndUncompletionsPointTotals(t *testing.T) {
 		t.Fatalf("expected 10 points after uncompleting core, got %v", pts["balance"])
 	}
 
-	// Step 6: Re-complete Bonus (revival flow) -> restores pre-uncheck state (+30) -> balance 40
+	// Step 6: Re-complete Bonus while Core is incomplete -> gate remains closed, balance stays 10
 	env.expectStatus(t, "POST", "/api/schedules/3/complete", map[string]any{
 		"completed_by":    kidID,
 		"completion_date": today,
@@ -4448,11 +4685,11 @@ func TestRandomOrderCompletionsAndUncompletionsPointTotals(t *testing.T) {
 
 	resp = env.expectStatus(t, "GET", fmt.Sprintf("/api/users/%d/points", kidID), nil, childHeaders(kidID), http.StatusOK)
 	decodeBody(t, resp, &pts)
-	if pts["balance"].(float64) != 40 {
-		t.Fatalf("expected 40 points after reviving bonus, got %v", pts["balance"])
+	if pts["balance"].(float64) != 10 {
+		t.Fatalf("expected 10 points after reviving gated bonus, got %v", pts["balance"])
 	}
 
-	// Step 7: Re-complete Core (revival flow) -> restores pre-uncheck state (+20) -> balance 60
+	// Step 7: Re-complete Core -> +20 and opens Bonus gate -> +30, balance 60
 	env.expectStatus(t, "POST", "/api/schedules/2/complete", map[string]any{
 		"completed_by":    kidID,
 		"completion_date": today,
@@ -4648,6 +4885,33 @@ func TestExcuseChoreAndRefundMissedPenalty(t *testing.T) {
 	decodeBody(t, resp, &pts)
 	if pts["balance"].(float64) != 20 {
 		t.Fatalf("expected balance to remain 20, got %v", pts["balance"])
+	}
+}
+
+func TestExcusingCompletedChoreReversesItsPoints(t *testing.T) {
+	env := setupTest(t)
+	env.createAdmin(t)
+	kidID := env.createChild(t, "Kid")
+	today := time.Now().Format(model.DateFormat)
+
+	env.request(t, "POST", "/api/chores", map[string]any{
+		"title": "Already done", "category": "required", "points_value": 10,
+	}, adminHeaders())
+	env.request(t, "POST", "/api/chores/1/schedules", map[string]any{
+		"assigned_to": kidID, "specific_date": today,
+	}, adminHeaders())
+	env.expectStatus(t, "POST", "/api/schedules/1/complete", map[string]any{
+		"completed_by": kidID, "completion_date": today,
+	}, adminHeaders(), http.StatusCreated)
+	env.expectStatus(t, "POST", "/api/schedules/1/excuse", map[string]any{
+		"date": today, "reason": "waived",
+	}, adminHeaders(), http.StatusCreated)
+
+	resp := env.expectStatus(t, "GET", fmt.Sprintf("/api/users/%d/points", kidID), nil, adminHeaders(), http.StatusOK)
+	var points map[string]any
+	decodeBody(t, resp, &points)
+	if points["balance"].(float64) != 0 {
+		t.Fatalf("expected excused completed chore to have zero net points, got %v", points["balance"])
 	}
 }
 

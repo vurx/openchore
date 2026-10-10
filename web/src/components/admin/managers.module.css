@@ -37,6 +37,38 @@
   margin-left: auto;
 }
 
+.itemActions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.editButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 44px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--surface-sunk);
+  color: var(--ink);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.editButton svg {
+  width: 17px;
+  height: 17px;
+}
+
+.editPanel {
+  margin: 0 var(--space-3) var(--space-3);
+}
+
 .when {
   font-size: 14px;
   font-weight: 650;

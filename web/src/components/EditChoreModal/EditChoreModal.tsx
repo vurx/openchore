@@ -105,7 +105,9 @@ const EditChoreModal: React.FC<Props> = ({ chore, isOpen, onClose, onSaved, user
         icon,
         points_value: points,
         missed_penalty_value: missedPenalty || 0,
-        estimated_minutes: minutes || undefined,
+        // Zero is a meaningful value ("no estimated time"). Do not collapse it
+        // to undefined, otherwise the backend treats the field as unchanged.
+        estimated_minutes: minutes,
         requires_approval: requiresApproval,
         requires_photo: requiresPhoto,
         photo_source: requiresPhoto ? photoSource : 'child',

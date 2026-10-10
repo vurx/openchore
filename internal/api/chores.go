@@ -1,8 +1,8 @@
 package api
 
 import (
-	"errors"
 	"context"
+	"errors"
 	"log"
 	"net/http"
 	"sync"
@@ -106,6 +106,18 @@ func (h *ChoreHandler) Create(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "category must be required, core, or bonus")
 		return
 	}
+	if req.PointsValue != nil && *req.PointsValue < 0 {
+		writeError(w, http.StatusBadRequest, "points_value must be non-negative")
+		return
+	}
+	if req.MissedPenaltyValue != nil && *req.MissedPenaltyValue < 0 {
+		writeError(w, http.StatusBadRequest, "missed_penalty_value must be non-negative")
+		return
+	}
+	if req.EstimatedMinutes != nil && *req.EstimatedMinutes < 0 {
+		writeError(w, http.StatusBadRequest, "estimated_minutes must be non-negative")
+		return
+	}
 
 	photoSource := req.PhotoSource
 	if photoSource == "" {
@@ -185,12 +197,24 @@ func (h *ChoreHandler) Update(w http.ResponseWriter, r *http.Request) {
 	// value). This lets admins clear a penalty or reset points to zero via
 	// the UI rather than having the update silently dropped.
 	if req.PointsValue != nil {
+		if *req.PointsValue < 0 {
+			writeError(w, http.StatusBadRequest, "points_value must be non-negative")
+			return
+		}
 		existing.PointsValue = *req.PointsValue
 	}
 	if req.MissedPenaltyValue != nil {
+		if *req.MissedPenaltyValue < 0 {
+			writeError(w, http.StatusBadRequest, "missed_penalty_value must be non-negative")
+			return
+		}
 		existing.MissedPenaltyValue = *req.MissedPenaltyValue
 	}
 	if req.EstimatedMinutes != nil {
+		if *req.EstimatedMinutes < 0 {
+			writeError(w, http.StatusBadRequest, "estimated_minutes must be non-negative")
+			return
+		}
 		existing.EstimatedMinutes = req.EstimatedMinutes
 	}
 	// Always update booleans as they might be toggled off (or we could rely on a PATCH approach, but here we just assign)
@@ -246,6 +270,60 @@ type createScheduleRequest struct {
 	RecurrenceStart    *string `json:"recurrence_start"`
 }
 
+func scheduleFromRequest(choreID int64, req *createScheduleRequest) (*model.ChoreSchedule, string) {
+	if req.AssignedTo == 0 {
+		return nil, "assigned_to is required"
+	}
+	if req.RecurrenceInterval != nil {
+		if *req.RecurrenceInterval < 1 {
+			return nil, "recurrence_interval must be >= 1"
+		}
+		if req.RecurrenceStart == nil || *req.RecurrenceStart == "" {
+			return nil, "recurrence_start is required with recurrence_interval"
+		}
+	} else if req.DayOfWeek == nil && req.SpecificDate == nil {
+		return nil, "day_of_week, specific_date, or recurrence_interval is required"
+	}
+	if req.DayOfWeek != nil && (*req.DayOfWeek < 0 || *req.DayOfWeek > 6) {
+		return nil, "day_of_week must be between 0 and 6"
+	}
+	if req.AssignmentType == "" {
+		req.AssignmentType = "individual"
+	}
+	if req.PointsMultiplier == 0 {
+		req.PointsMultiplier = 1.0
+	}
+	if req.PointsMultiplier < 0 {
+		return nil, "points_multiplier must be positive"
+	}
+	if req.ExpiryPenalty == "" {
+		req.ExpiryPenalty = model.ExpiryBlock
+	}
+	if req.ExpiryPenalty != model.ExpiryBlock && req.ExpiryPenalty != model.ExpiryNoPoints && req.ExpiryPenalty != model.ExpiryPenalty {
+		return nil, "expiry_penalty must be block, no_points, or penalty"
+	}
+	if req.ExpiryPenalty == model.ExpiryPenalty && req.ExpiryPenaltyValue <= 0 {
+		return nil, "expiry_penalty_value must be positive for penalty mode"
+	}
+
+	return &model.ChoreSchedule{
+		ChoreID:            choreID,
+		AssignedTo:         req.AssignedTo,
+		AssignmentType:     req.AssignmentType,
+		DayOfWeek:          req.DayOfWeek,
+		SpecificDate:       req.SpecificDate,
+		AvailableAt:        req.AvailableAt,
+		DueBy:              req.DueBy,
+		ExpiryPenalty:      req.ExpiryPenalty,
+		ExpiryPenaltyValue: req.ExpiryPenaltyValue,
+		PointsMultiplier:   req.PointsMultiplier,
+		StartDate:          req.StartDate,
+		EndDate:            req.EndDate,
+		RecurrenceInterval: req.RecurrenceInterval,
+		RecurrenceStart:    req.RecurrenceStart,
+	}, ""
+}
+
 func (h *ChoreHandler) CreateSchedule(w http.ResponseWriter, r *http.Request) {
 	choreID, err := urlParamInt64(r, "id")
 	if err != nil {
@@ -263,62 +341,55 @@ func (h *ChoreHandler) CreateSchedule(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "invalid request body")
 		return
 	}
-	if req.AssignedTo == 0 {
-		writeError(w, http.StatusBadRequest, "assigned_to is required")
+	schedule, validationError := scheduleFromRequest(choreID, &req)
+	if validationError != "" {
+		writeError(w, http.StatusBadRequest, validationError)
 		return
-	}
-	if req.RecurrenceInterval != nil {
-		if *req.RecurrenceInterval < 1 {
-			writeError(w, http.StatusBadRequest, "recurrence_interval must be >= 1")
-			return
-		}
-		if req.RecurrenceStart == nil {
-			writeError(w, http.StatusBadRequest, "recurrence_start is required with recurrence_interval")
-			return
-		}
-	} else if req.DayOfWeek == nil && req.SpecificDate == nil {
-		writeError(w, http.StatusBadRequest, "day_of_week, specific_date, or recurrence_interval is required")
-		return
-	}
-	if req.AssignmentType == "" {
-		req.AssignmentType = "individual"
-	}
-	if req.PointsMultiplier == 0 {
-		req.PointsMultiplier = 1.0
-	}
-	if req.ExpiryPenalty == "" {
-		req.ExpiryPenalty = model.ExpiryBlock
-	}
-	if req.ExpiryPenalty != model.ExpiryBlock && req.ExpiryPenalty != model.ExpiryNoPoints && req.ExpiryPenalty != model.ExpiryPenalty {
-		writeError(w, http.StatusBadRequest, "expiry_penalty must be block, no_points, or penalty")
-		return
-	}
-	if req.ExpiryPenalty == model.ExpiryPenalty && req.ExpiryPenaltyValue <= 0 {
-		writeError(w, http.StatusBadRequest, "expiry_penalty_value must be positive for penalty mode")
-		return
-	}
-
-	schedule := &model.ChoreSchedule{
-		ChoreID:            choreID,
-		AssignedTo:         req.AssignedTo,
-		AssignmentType:     req.AssignmentType,
-		DayOfWeek:          req.DayOfWeek,
-		SpecificDate:       req.SpecificDate,
-		AvailableAt:        req.AvailableAt,
-		DueBy:              req.DueBy,
-		ExpiryPenalty:      req.ExpiryPenalty,
-		ExpiryPenaltyValue: req.ExpiryPenaltyValue,
-		PointsMultiplier:   req.PointsMultiplier,
-		StartDate:          req.StartDate,
-		EndDate:            req.EndDate,
-		RecurrenceInterval: req.RecurrenceInterval,
-		RecurrenceStart:    req.RecurrenceStart,
 	}
 	if err := h.store.CreateSchedule(r.Context(), schedule); err != nil {
 		writeError(w, http.StatusInternalServerError, "failed to create schedule")
 		return
 	}
 	writeJSON(w, http.StatusCreated, schedule)
+}
+
+func (h *ChoreHandler) UpdateSchedule(w http.ResponseWriter, r *http.Request) {
+	choreID, err := urlParamInt64(r, "id")
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "invalid chore id")
+		return
+	}
+	scheduleID, err := urlParamInt64(r, "scheduleID")
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "invalid schedule id")
+		return
+	}
+	existing, err := h.store.GetSchedule(r.Context(), scheduleID)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to get schedule")
+		return
+	}
+	if existing == nil || existing.ChoreID != choreID {
+		writeError(w, http.StatusNotFound, "schedule not found")
+		return
+	}
+	var req createScheduleRequest
+	if err := decodeJSON(r, &req); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+	schedule, validationError := scheduleFromRequest(choreID, &req)
+	if validationError != "" {
+		writeError(w, http.StatusBadRequest, validationError)
+		return
+	}
+	schedule.ID = scheduleID
+	schedule.FcfsGroupID = existing.FcfsGroupID
+	if err := h.store.UpdateSchedule(r.Context(), schedule); err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to update schedule")
+		return
+	}
+	writeJSON(w, http.StatusOK, schedule)
 }
 
 func (h *ChoreHandler) ListSchedules(w http.ResponseWriter, r *http.Request) {
@@ -339,9 +410,23 @@ func (h *ChoreHandler) ListSchedules(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *ChoreHandler) DeleteSchedule(w http.ResponseWriter, r *http.Request) {
+	choreID, err := urlParamInt64(r, "id")
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "invalid chore id")
+		return
+	}
 	scheduleID, err := urlParamInt64(r, "scheduleID")
 	if err != nil {
 		writeError(w, http.StatusBadRequest, "invalid schedule id")
+		return
+	}
+	schedule, err := h.store.GetSchedule(r.Context(), scheduleID)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to get schedule")
+		return
+	}
+	if schedule == nil || schedule.ChoreID != choreID {
+		writeError(w, http.StatusNotFound, "schedule not found")
 		return
 	}
 	if err := h.store.DeleteSchedule(r.Context(), scheduleID); err != nil {
@@ -360,6 +445,36 @@ type completeChoreRequest struct {
 	// SkipPhoto finishes a photo chore without one; it then waits for a
 	// parent to approve instead.
 	SkipPhoto bool `json:"skip_photo"`
+}
+
+// completionIsLate evaluates the deadline against the date the completion is
+// for and the instant it was submitted. Comparing to minute precision keeps
+// the UI contract: a 17:00 deadline remains open through 17:00:59. It also
+// ensures back-dated submissions obey their original deadline.
+func completionIsLate(schedule *model.ChoreSchedule, completionDate string, submittedAt time.Time) bool {
+	if schedule == nil || schedule.DueBy == nil || *schedule.DueBy == "" {
+		return false
+	}
+	return submittedAt.In(time.Local).Format(model.DateFormat+" 15:04") > completionDate+" "+*schedule.DueBy
+}
+
+// applyExpiryPolicy returns the points credit, late penalty debit, and whether
+// completion is blocked. "Deduct points" means zero reward plus a debit; it is
+// intentionally not a reduction from the chore's reward.
+func applyExpiryPolicy(schedule *model.ChoreSchedule, completionDate string, submittedAt time.Time, points int) (int, int, bool) {
+	if !completionIsLate(schedule, completionDate, submittedAt) {
+		return points, 0, false
+	}
+	switch schedule.ExpiryPenalty {
+	case model.ExpiryBlock:
+		return 0, 0, true
+	case model.ExpiryNoPoints:
+		return 0, 0, false
+	case model.ExpiryPenalty:
+		return 0, schedule.ExpiryPenaltyValue, false
+	default:
+		return points, 0, false
+	}
 }
 
 func (h *ChoreHandler) Complete(w http.ResponseWriter, r *http.Request) {
@@ -389,6 +504,23 @@ func (h *ChoreHandler) Complete(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusNotFound, "schedule not found")
 		return
 	}
+	if _, err := time.ParseInLocation(model.DateFormat, req.CompletionDate, time.Local); err != nil {
+		writeError(w, http.StatusBadRequest, "completion_date must be YYYY-MM-DD")
+		return
+	}
+	if req.CompletionDate > time.Now().Format(model.DateFormat) {
+		writeError(w, http.StatusUnprocessableEntity, "future chores cannot be completed")
+		return
+	}
+	occurs, err := h.store.ScheduleOccursOnDate(r.Context(), scheduleID, req.CompletionDate)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to validate schedule date")
+		return
+	}
+	if !occurs {
+		writeError(w, http.StatusUnprocessableEntity, "this chore is not scheduled for the requested date")
+		return
+	}
 
 	// Only the assignee (or a parent acting on their behalf) may complete.
 	caller := UserFromContext(r.Context())
@@ -413,13 +545,9 @@ func (h *ChoreHandler) Complete(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// Check expiry
-	isExpired := false
-	if schedule.DueBy != nil && *schedule.DueBy != "" && req.CompletionDate == now.Format(model.DateFormat) {
-		if nowTime > *schedule.DueBy {
-			isExpired = true
-		}
-	}
+	// Check expiry against the requested chore date so a back-dated
+	// completion cannot bypass the schedule's late policy.
+	isExpired := completionIsLate(schedule, req.CompletionDate, now)
 
 	// Enforce expiry penalty
 	if isExpired && schedule.ExpiryPenalty == model.ExpiryBlock {
@@ -453,7 +581,7 @@ func (h *ChoreHandler) Complete(w http.ResponseWriter, r *http.Request) {
 			// them as fresh retry targets by hard-deleting and falling
 			// through to the normal complete flow.
 			if existing.Status == model.StatusApproved || existing.Status == model.StatusPending {
-				if err := h.store.ReviveCompletionAndReverseDebits(r.Context(), existing.ID); err != nil {
+				if err := h.store.ReviveCompletion(r.Context(), existing.ID); err != nil {
 					writeError(w, http.StatusInternalServerError, "failed to revive completion")
 					return
 				}
@@ -476,37 +604,34 @@ func (h *ChoreHandler) Complete(w http.ResponseWriter, r *http.Request) {
 					_ = h.store.UpdateCompletionStatus(r.Context(), existing.ID, model.StatusApproved, user.ID)
 				}
 				if existing.Status == model.StatusApproved {
-					// Bonus chores that were originally credited 0 points (because
-					// required/core weren't done yet) can now qualify if the kid has
-					// since finished the rest of the day. Re-run the gate and credit
-					// the difference via a fresh chore_complete transaction (all
-					// point changes must go through point_transactions per
-					// CLAUDE.md). We only ever credit the delta, so stacking
-					// unchecks/rechecks can't multi-credit the bonus.
+					// Re-checking is a new points event, while the preserved completion
+					// keeps its photo/review metadata. The previous completion and
+					// uncomplete ledger rows remain as an audit trail; restore only the
+					// points allowed by the gates and deadline right now.
 					reviveChore, _ := h.store.GetChore(r.Context(), schedule.ChoreID)
-					if reviveChore != nil && reviveChore.Category == model.CategoryCore {
-						if h.shouldAwardCorePoints(r.Context(), existing.CompletedBy, req.CompletionDate) {
-							fullPts, _ := h.store.GetChorePointsForSchedule(r.Context(), scheduleID)
-							alreadyCredited, _ := h.store.GetNetPointsForCompletion(r.Context(), existing.ID)
-							delta := fullPts - alreadyCredited
-							if delta > 0 {
-								if err := h.store.CreditChorePoints(r.Context(), existing.CompletedBy, existing.ID, delta); err != nil {
-									log.Printf("error crediting core delta on revive for completion %d: %v", existing.ID, err)
-								}
-							}
+					targetPoints, _ := h.store.GetChorePointsForSchedule(r.Context(), scheduleID)
+					if reviveChore != nil && reviveChore.Category == model.CategoryCore && !h.shouldAwardCorePoints(r.Context(), existing.CompletedBy, req.CompletionDate) {
+						targetPoints = 0
+					}
+					if reviveChore != nil && reviveChore.Category == model.CategoryBonus && !h.shouldAwardBonusPoints(r.Context(), existing.CompletedBy, req.CompletionDate) {
+						targetPoints = 0
+					}
+					targetPoints, penalty, _ := applyExpiryPolicy(schedule, existing.CompletionDate, now, targetPoints)
+					if targetPoints > 0 {
+						if err := h.store.CreditChorePoints(r.Context(), existing.CompletedBy, existing.ID, targetPoints); err != nil {
+							log.Printf("error restoring points on revive for completion %d: %v", existing.ID, err)
 						}
 					}
-					if reviveChore != nil && reviveChore.Category == model.CategoryBonus {
-						if h.shouldAwardBonusPoints(r.Context(), existing.CompletedBy, req.CompletionDate) {
-							fullPts, _ := h.store.GetChorePointsForSchedule(r.Context(), scheduleID)
-							alreadyCredited, _ := h.store.GetNetPointsForCompletion(r.Context(), existing.ID)
-							delta := fullPts - alreadyCredited
-							if delta > 0 {
-								if err := h.store.CreditChorePoints(r.Context(), existing.CompletedBy, existing.ID, delta); err != nil {
-									log.Printf("error crediting bonus delta on revive for completion %d: %v", existing.ID, err)
-								}
-							}
+					if penalty > 0 {
+						if err := h.store.DebitExpiryPenalty(r.Context(), existing.CompletedBy, existing.ID, penalty); err != nil {
+							log.Printf("error restoring late penalty on revive for completion %d: %v", existing.ID, err)
 						}
+					}
+					if reviveChore != nil && reviveChore.Category == model.CategoryRequired {
+						h.creditPendingCorePoints(r.Context(), existing.CompletedBy, req.CompletionDate)
+					}
+					if reviveChore != nil && (reviveChore.Category == model.CategoryRequired || reviveChore.Category == model.CategoryCore) {
+						h.creditPendingBonusPoints(r.Context(), existing.CompletedBy, req.CompletionDate)
 					}
 					// Recalculate streak after revival
 					if err := h.store.RecalculateStreak(r.Context(), existing.CompletedBy, req.CompletionDate); err != nil {
@@ -599,15 +724,7 @@ func (h *ChoreHandler) Complete(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 
-		if isExpired {
-			switch schedule.ExpiryPenalty {
-			case model.ExpiryNoPoints:
-				pts = 0
-			case model.ExpiryPenalty:
-				pts = 0
-				expiryPenalty = schedule.ExpiryPenaltyValue
-			}
-		}
+		pts, expiryPenalty, _ = applyExpiryPolicy(schedule, req.CompletionDate, now, pts)
 	}
 
 	if err := h.store.CompleteChoreAndCreditPoints(r.Context(), completion, pts, expiryPenalty); err != nil {
@@ -869,6 +986,7 @@ func (h *ChoreHandler) approveCompletion(ctx context.Context, completion *model.
 	schedule, _ := h.store.GetSchedule(ctx, completion.ChoreScheduleID)
 	var chore *model.Chore
 	var pts int
+	var expiryPenalty int
 	if schedule != nil {
 		pts, _ = h.store.GetChorePointsForSchedule(ctx, schedule.ID)
 		chore, _ = h.store.GetChore(ctx, schedule.ChoreID)
@@ -883,9 +1001,13 @@ func (h *ChoreHandler) approveCompletion(ctx context.Context, completion *model.
 			!h.shouldAwardBonusPoints(ctx, completion.CompletedBy, completion.CompletionDate) {
 			pts = 0
 		}
+
+		// Apply the deadline using the original submission time. Approval can
+		// happen hours later and must not change whether the work was late.
+		pts, expiryPenalty, _ = applyExpiryPolicy(schedule, completion.CompletionDate, completion.CompletedAt, pts)
 	}
 
-	if err := h.store.ApproveCompletionAndCreditPoints(ctx, completion.ID, approverID, pts); err != nil {
+	if err := h.store.ApproveCompletionAndCreditPoints(ctx, completion.ID, approverID, pts, expiryPenalty); err != nil {
 		return err
 	}
 
@@ -1061,12 +1183,24 @@ func (h *ChoreHandler) creditPendingBonusPoints(ctx context.Context, userID int6
 			log.Printf("error fetching points for schedule %d: %v", sc.ScheduleID, err)
 			continue
 		}
+		completion, err := h.store.GetCompletion(ctx, *sc.CompletionID)
+		if err != nil || completion == nil {
+			log.Printf("error fetching completion %d for bonus reevaluation: %v", *sc.CompletionID, err)
+			continue
+		}
+		schedule, err := h.store.GetSchedule(ctx, sc.ScheduleID)
+		if err != nil || schedule == nil {
+			log.Printf("error fetching schedule %d for bonus reevaluation: %v", sc.ScheduleID, err)
+			continue
+		}
+		fullPts, penalty, _ := applyExpiryPolicy(schedule, completion.CompletionDate, completion.CompletedAt, fullPts)
+		targetNet := fullPts - penalty
 		alreadyCredited, err := h.store.GetNetPointsForCompletion(ctx, *sc.CompletionID)
 		if err != nil {
 			log.Printf("error fetching net points for completion %d: %v", *sc.CompletionID, err)
 			continue
 		}
-		delta := fullPts - alreadyCredited
+		delta := targetNet - alreadyCredited
 		if delta > 0 {
 			if err := h.store.CreditChorePoints(ctx, userID, *sc.CompletionID, delta); err != nil {
 				log.Printf("error crediting retroactive bonus points for user %d completion %d: %v", userID, *sc.CompletionID, err)
@@ -1104,12 +1238,24 @@ func (h *ChoreHandler) creditPendingCorePoints(ctx context.Context, userID int64
 			log.Printf("error fetching points for schedule %d: %v", sc.ScheduleID, err)
 			continue
 		}
+		completion, err := h.store.GetCompletion(ctx, *sc.CompletionID)
+		if err != nil || completion == nil {
+			log.Printf("error fetching completion %d for core reevaluation: %v", *sc.CompletionID, err)
+			continue
+		}
+		schedule, err := h.store.GetSchedule(ctx, sc.ScheduleID)
+		if err != nil || schedule == nil {
+			log.Printf("error fetching schedule %d for core reevaluation: %v", sc.ScheduleID, err)
+			continue
+		}
+		fullPts, penalty, _ := applyExpiryPolicy(schedule, completion.CompletionDate, completion.CompletedAt, fullPts)
+		targetNet := fullPts - penalty
 		alreadyCredited, err := h.store.GetNetPointsForCompletion(ctx, *sc.CompletionID)
 		if err != nil {
 			log.Printf("error fetching net points for completion %d: %v", *sc.CompletionID, err)
 			continue
 		}
-		delta := fullPts - alreadyCredited
+		delta := targetNet - alreadyCredited
 		if delta > 0 {
 			if err := h.store.CreditChorePoints(ctx, userID, *sc.CompletionID, delta); err != nil {
 				log.Printf("error crediting retroactive core points for user %d completion %d: %v", userID, *sc.CompletionID, err)
@@ -1173,17 +1319,13 @@ func (h *ChoreHandler) Excuse(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusCreated, completion)
 }
 
-
-
 // completerFor decides whose completion this is (and so who is credited).
-// It defaults to the schedule's assignee, so a parent ticking a kid's chore
-// credits the kid. Only admins may name someone else explicitly.
+// Points always belong to the schedule's assignee, including when a parent
+// ticks the chore on that person's behalf. The request field is accepted for
+// compatibility but cannot redirect points to another profile.
 func completerFor(caller *model.User, schedule *model.ChoreSchedule, requested int64) (int64, error) {
 	if requested == 0 || requested == schedule.AssignedTo {
 		return schedule.AssignedTo, nil
 	}
-	if caller.Role != model.RoleAdmin {
-		return 0, errors.New("can only complete chores as yourself")
-	}
-	return requested, nil
+	return 0, errors.New("completed_by must match the schedule assignee")
 }

@@ -94,7 +94,7 @@
 }
 
 /* ---------- DayProgress ---------- */
-.oc-prog { position: relative; font-family: var(--font-text); color: var(--ink); }
+.oc-prog { position: relative; min-width: 0; max-width: 100%; font-family: var(--font-text); color: var(--ink); }
 .oc-prog__arcwrap { display: var(--show-arc); position: relative; height: 118px; }
 .oc-prog__arc { position: absolute; left: 0; top: 0; width: 100%; max-width: 312px; height: 100px; overflow: visible; }
 .oc-prog__track { fill: none; stroke: var(--line); stroke-width: 2; stroke-dasharray: 1 7; stroke-linecap: round; }
@@ -107,11 +107,12 @@
 .oc-prog__arcnum b span { color: var(--ink-muted); }
 .oc-prog__arcnum small, .oc-prog__ringnum small { display: block; font-size: 12px; font-weight: 600; color: var(--ink-muted); }
 .oc-prog__ends { position: absolute; left: 0; top: 102px; width: 100%; max-width: 312px; display: flex; justify-content: space-between; font-size: 11px; font-weight: 600; color: var(--ink-muted); }
-.oc-prog__shapes { display: var(--show-shapes); align-items: center; gap: 6px; padding: 6px 0 2px; }
-.oc-prog__shapes .oc-mark { width: 26px; height: 26px; }
+.oc-prog__shapes { display: var(--show-shapes); align-items: center; gap: clamp(2px, 1.5vw, 6px); width: 100%; min-width: 0; box-sizing: border-box; padding: 6px 0 2px; }
+/* A busy day must shrink its marks instead of widening the whole phone page. */
+.oc-prog__shapes .oc-mark { flex: 1 1 26px; width: 26px; min-width: 0; max-width: 26px; height: auto; aspect-ratio: 1; }
 .oc-prog__shapes .oc-mark * { stroke-width: 2.5; }
 .oc-prog__shapes .oc-mark:not(.is-done) * { fill: var(--mark-empty); }
-.oc-prog__shapes b { margin-left: auto; padding-left: 6px; white-space: nowrap; font-size: 13px; font-weight: 700; }
+.oc-prog__shapes b { flex: none; margin-left: auto; padding-left: 4px; white-space: nowrap; font-size: 13px; font-weight: 700; }
 .oc-prog__ringwrap { display: var(--show-ring); position: relative; margin: 6px auto 0; width: 212px; height: 212px; }
 .oc-prog__ring { width: 212px; height: 212px; transform: rotate(-90deg); }
 .oc-prog__rtrack { fill: none; stroke: var(--surface-sunk); stroke-width: 16; }

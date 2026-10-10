@@ -65,7 +65,11 @@ func (pc *DecayChecker) check(ctx context.Context) {
 			// completed and has a configured missed-penalty value. Bonus
 			// chores are optional and never incur a missed-chore penalty.
 			// Excused chores are also never penalized.
-			if c.Category != model.CategoryBonus && !c.Completed && (c.CompletionStatus == nil || *c.CompletionStatus != model.StatusExcused) && c.MissedPenaltyValue > 0 {
+			// Pending work counts as submitted while it waits for a parent. A
+			// rejected attempt does not count as completion and is therefore
+			// still eligible for the missed-chore penalty.
+			rejected := c.CompletionStatus != nil && *c.CompletionStatus == model.StatusRejected
+			if c.Category != model.CategoryBonus && (!c.Completed || rejected) && (c.CompletionStatus == nil || *c.CompletionStatus != model.StatusExcused) && c.MissedPenaltyValue > 0 {
 				// Check if already penalized to avoid double-dipping
 				alreadyPenalized, err := pc.store.HasMissedChorePenalty(ctx, c.ScheduleID, yesterday)
 				if err != nil {
