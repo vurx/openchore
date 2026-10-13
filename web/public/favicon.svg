@@ -1,21 +1,104 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
-  <!-- Broom handle -->
-  <line x1="20" y1="8" x2="38" y2="42" stroke="#8B6914" stroke-width="4" stroke-linecap="round"/>
-  <!-- Broom head binding -->
-  <rect x="30" y="40" width="20" height="5" rx="1.5" fill="#8B6914" transform="rotate(-10, 40, 42)"/>
-  <!-- Broom bristles -->
-  <path d="M28 44 C26 56, 24 58, 20 60" stroke="#D4A843" stroke-width="2.5" fill="none" stroke-linecap="round"/>
-  <path d="M32 45 C31 57, 30 59, 28 61" stroke="#D4A843" stroke-width="2.5" fill="none" stroke-linecap="round"/>
-  <path d="M36 44 C36 56, 36 58, 36 61" stroke="#D4A843" stroke-width="2.5" fill="none" stroke-linecap="round"/>
-  <path d="M40 43 C41 55, 42 57, 44 60" stroke="#D4A843" stroke-width="2.5" fill="none" stroke-linecap="round"/>
-  <path d="M44 42 C46 54, 48 56, 52 59" stroke="#D4A843" stroke-width="2.5" fill="none" stroke-linecap="round"/>
-  <!-- Sparkle -->
-  <g fill="#FFD700">
-    <polygon points="12,18 14,14 16,18 14,22" />
-    <polygon points="8,18 14,16 20,18 14,20" />
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="100%" height="100%">
+  <defs>
+    <!-- Background Gradient: Indigo to Violet -->
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#4338CA" />
+      <stop offset="48%" stop-color="#4F46E5" />
+      <stop offset="100%" stop-color="#7C3AED" />
+    </linearGradient>
+
+    <!-- Top Soft Glass Gloss -->
+    <radialGradient id="topGloss" cx="50%" cy="10%" r="65%">
+      <stop offset="0%" stop-color="#FFFFFF" stop-opacity="0.32" />
+      <stop offset="60%" stop-color="#FFFFFF" stop-opacity="0.05" />
+      <stop offset="100%" stop-color="#FFFFFF" stop-opacity="0" />
+    </radialGradient>
+
+    <!-- Golden Star Gradient -->
+    <linearGradient id="starGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#FFF275" />
+      <stop offset="28%" stop-color="#FBBF24" />
+      <stop offset="100%" stop-color="#D97706" />
+    </linearGradient>
+
+    <!-- Star Top Highlight -->
+    <linearGradient id="starHighlight" x1="0%" y1="0%" x2="0%" y2="60%">
+      <stop offset="0%" stop-color="#FFFFFF" stop-opacity="0.55" />
+      <stop offset="100%" stop-color="#FBBF24" stop-opacity="0" />
+    </linearGradient>
+
+    <!-- Magic Sparkle Gradient -->
+    <linearGradient id="sparkleGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FFFFFF" />
+      <stop offset="60%" stop-color="#FEF08A" />
+      <stop offset="100%" stop-color="#FCD34D" />
+    </linearGradient>
+
+    <!-- Soft 3D Shadow for Star -->
+    <filter id="starShadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="12" stdDeviation="16" flood-color="#1E1B4B" flood-opacity="0.45" />
+    </filter>
+
+    <!-- Shadow for Checkmark -->
+    <filter id="checkShadow" x="-30%" y="-30%" width="160%" height="160%">
+      <feDropShadow dx="0" dy="5" stdDeviation="7" flood-color="#78350F" flood-opacity="0.38" />
+    </filter>
+  </defs>
+
+  <!-- Base Continuous Squircle -->
+  <rect x="0" y="0" width="512" height="512" rx="116" fill="url(#bgGrad)" />
+
+  <!-- Top Ambient Glass Gloss -->
+  <rect x="0" y="0" width="512" height="512" rx="116" fill="url(#topGloss)" />
+
+  <!-- Subtle Inner Border Glow -->
+  <rect x="2" y="2" width="508" height="508" rx="114" fill="none" stroke="#FFFFFF" stroke-width="2.5" stroke-opacity="0.22" />
+
+  <!-- Main Golden Accomplishment Star -->
+  <g filter="url(#starShadow)">
+    <!-- Star Base Geometry -->
+    <polygon points="
+      256,92
+      302,185 404,198 328,268 349,368
+      256,317
+      163,368 184,268 108,198 210,185"
+      fill="url(#starGrad)"
+      stroke="url(#starGrad)"
+      stroke-width="32"
+      stroke-linejoin="round"
+      stroke-linecap="round" />
+
+    <!-- Star Top Specular Sheen -->
+    <polygon points="
+      256,104
+      297,188 390,199 321,262
+      256,220
+      191,262 122,199 215,188"
+      fill="url(#starHighlight)"
+      opacity="0.8" />
   </g>
-  <g fill="#FFD700" transform="translate(40,6) scale(0.6)">
-    <polygon points="4,8 6,4 8,8 6,12" />
-    <polygon points="0,8 6,6 12,8 6,10" />
-  </g>
+
+  <!-- Crisp Dynamic White Checkmark -->
+  <path d="M194 256 L238 300 L326 198"
+    fill="none"
+    stroke="#FFFFFF"
+    stroke-width="42"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+    filter="url(#checkShadow)" />
+
+  <!-- Magic Sparkle Top Right (✦) -->
+  <path d="M400 86 C400 112 413 125 439 125 C413 125 400 138 400 164 C400 138 387 125 361 125 C387 125 400 112 400 86 Z"
+    fill="url(#sparkleGrad)"
+    filter="url(#starShadow)" />
+
+  <!-- Magic Sparkle Bottom Left (✦) -->
+  <path d="M116 360 C116 378 125 387 143 387 C125 387 116 396 116 414 C116 396 107 387 89 387 C107 387 116 378 116 360 Z"
+    fill="url(#sparkleGrad)"
+    opacity="0.95" />
+
+  <!-- Tiny Playful Star Dots -->
+  <circle cx="448" cy="188" r="6" fill="#FFFBEB" opacity="0.9" />
+  <circle cx="82" cy="326" r="4.5" fill="#FFFBEB" opacity="0.8" />
+  <circle cx="156" cy="98" r="5" fill="#FFFBEB" opacity="0.85" />
 </svg>
