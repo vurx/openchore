@@ -765,8 +765,8 @@ func (s *Store) ApproveCompletionAndCreditPoints(ctx context.Context, completion
 }
 
 // ExcuseChoreAndRefundPenalty marks a chore as excused for a schedule and date,
-// records the admin approval metadata and reason, and refunds any missed-chore
-// penalties that were already debited for this schedule and date.
+// records the admin approval metadata and reason, awards normal completion points,
+// and refunds any missed-chore penalties that were already debited for this schedule and date.
 func (s *Store) ExcuseChoreAndRefundPenalty(ctx context.Context, scheduleID int64, date string, adminID int64, reason string) (*model.ChoreCompletion, error) {
 	schedule, err := s.GetSchedule(ctx, scheduleID)
 	if err != nil {
@@ -774,6 +774,11 @@ func (s *Store) ExcuseChoreAndRefundPenalty(ctx context.Context, scheduleID int6
 	}
 	if schedule == nil {
 		return nil, fmt.Errorf("schedule not found: %d", scheduleID)
+	}
+
+	targetPoints, err := s.GetChorePointsForSchedule(ctx, scheduleID)
+	if err != nil {
+		targetPoints = 0
 	}
 
 	tx, err := s.db.BeginTx(ctx, nil)
@@ -794,9 +799,7 @@ func (s *Store) ExcuseChoreAndRefundPenalty(ctx context.Context, scheduleID int6
 
 	now := time.Now()
 	if err == nil {
-		// Excusing means the chore neither earns nor costs completion points.
-		// If it had already been approved (including a late completion), append
-		// a compensating ledger row instead of leaving stale points attached.
+		// If it had already had points ledger rows, reconcile/compensate them.
 		var completionNet int
 		if err := tx.QueryRowContext(ctx,
 			`SELECT COALESCE(SUM(amount), 0) FROM point_transactions
@@ -807,7 +810,7 @@ func (s *Store) ExcuseChoreAndRefundPenalty(ctx context.Context, scheduleID int6
 		if completionNet != 0 {
 			if _, err := tx.ExecContext(ctx,
 				`INSERT INTO point_transactions (user_id, amount, reason, reference_id, note)
-				 VALUES (?, ?, ?, ?, 'Completion waived: chore excused')`,
+				 VALUES (?, ?, ?, ?, 'Completion adjusted: chore excused')`,
 				userID, -completionNet, model.ReasonChoreUncomplete, completionID); err != nil {
 				return nil, err
 			}
@@ -835,6 +838,19 @@ func (s *Store) ExcuseChoreAndRefundPenalty(ctx context.Context, scheduleID int6
 		completionID, _ = res.LastInsertId()
 	} else {
 		return nil, err
+	}
+
+	// An excused chore counts as normal completion: award targetPoints
+	if targetPoints > 0 {
+		if _, err := tx.ExecContext(ctx,
+			`INSERT INTO point_transactions (user_id, amount, reason, reference_id, note)
+			 VALUES (?, ?, ?, ?, 'Chore excused (normal completion)')`,
+			userID, targetPoints, model.ReasonChoreComplete, completionID); err != nil {
+			return nil, err
+		}
+		if err := s.applyAutoContributeTx(ctx, tx, userID, completionID, targetPoints); err != nil {
+			return nil, err
+		}
 	}
 
 	// Refund any missed chore penalty that was applied for this schedule + date
@@ -882,7 +898,7 @@ func (s *Store) ExcuseChoreAndRefundPenalty(ctx context.Context, scheduleID int6
 // metadata for the same day. Rejected completions are hard deleted so the
 // kid can try again from scratch.
 func (s *Store) UncompleteChore(ctx context.Context, scheduleID int64, completionDate string) error {
-	// Only soft-delete live (non-uncompleted) approved/pending rows. Already
+	// Only soft-delete live (non-uncompleted) approved/pending/excused rows. Already
 	// soft-deleted rows are left alone — double-uncomplete is a no-op.
 	res, err := s.db.ExecContext(ctx,
 		`UPDATE chore_completions
@@ -890,8 +906,8 @@ func (s *Store) UncompleteChore(ctx context.Context, scheduleID int64, completio
 		 WHERE chore_schedule_id = ?
 		   AND completion_date = ?
 		   AND uncompleted_at IS NULL
-		   AND status IN (?, ?)`,
-		scheduleID, completionDate, model.StatusApproved, model.StatusPending)
+		   AND status IN (?, ?, ?)`,
+		scheduleID, completionDate, model.StatusApproved, model.StatusPending, model.StatusExcused)
 	if err != nil {
 		return err
 	}
@@ -899,7 +915,7 @@ func (s *Store) UncompleteChore(ctx context.Context, scheduleID int64, completio
 	if updated > 0 {
 		return nil
 	}
-	// Belt-and-suspenders: if an already-soft-deleted approved/pending row
+	// Belt-and-suspenders: if an already-soft-deleted approved/pending/excused row
 	// exists for this schedule+date, treat the operation as a no-op instead
 	// of falling through to the unconditional DELETE below. Without this
 	// guard, a double-uncheck would destroy the preserved row + metadata.
@@ -909,12 +925,12 @@ func (s *Store) UncompleteChore(ctx context.Context, scheduleID int64, completio
 		 WHERE chore_schedule_id = ?
 		   AND completion_date = ?
 		   AND uncompleted_at IS NOT NULL
-		   AND status IN (?, ?)`,
-		scheduleID, completionDate, model.StatusApproved, model.StatusPending,
+		   AND status IN (?, ?, ?)`,
+		scheduleID, completionDate, model.StatusApproved, model.StatusPending, model.StatusExcused,
 	).Scan(&softDeleted); err == nil && softDeleted > 0 {
 		return nil
 	}
-	// No approved/pending row found — fall back to a hard delete so
+	// No approved/pending/excused row found — fall back to a hard delete so
 	// rejected rows are cleared and can be retried fresh.
 	_, err = s.db.ExecContext(ctx,
 		`DELETE FROM chore_completions WHERE chore_schedule_id = ? AND completion_date = ?`,
@@ -937,8 +953,8 @@ func (s *Store) UncompleteChoreAndDebitPoints(ctx context.Context, scheduleID in
 		 WHERE chore_schedule_id = ?
 		   AND completion_date = ?
 		   AND uncompleted_at IS NULL
-		   AND status IN (?, ?)`,
-		scheduleID, completionDate, model.StatusApproved, model.StatusPending)
+		   AND status IN (?, ?, ?)`,
+		scheduleID, completionDate, model.StatusApproved, model.StatusPending, model.StatusExcused)
 	if err != nil {
 		return err
 	}
@@ -950,8 +966,8 @@ func (s *Store) UncompleteChoreAndDebitPoints(ctx context.Context, scheduleID in
 			 WHERE chore_schedule_id = ?
 			   AND completion_date = ?
 			   AND uncompleted_at IS NOT NULL
-			   AND status IN (?, ?)`,
-			scheduleID, completionDate, model.StatusApproved, model.StatusPending,
+			   AND status IN (?, ?, ?)`,
+			scheduleID, completionDate, model.StatusApproved, model.StatusPending, model.StatusExcused,
 		).Scan(&softDeleted); err == nil && softDeleted > 0 {
 			return tx.Commit()
 		}

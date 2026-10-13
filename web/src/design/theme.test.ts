@@ -37,16 +37,10 @@ describe('resolveSkin', () => {
 });
 
 describe('House schedule', () => {
-  it.each([
-    [6, 59, true],
-    [7, 0, false],
-    [12, 0, false],
-    [19, 29, false],
-    [19, 30, true],
-    [23, 59, true],
-    [0, 0, true],
-  ])('%i:%i dark=%s', (h, m, dark) => {
-    expect(isScheduledDark(at(h, m))).toBe(dark);
+  it('isScheduledDark always returns false since time-based dark mode is cancelled', () => {
+    expect(isScheduledDark(at(6, 59))).toBe(false);
+    expect(isScheduledDark(at(12, 0))).toBe(false);
+    expect(isScheduledDark(at(20, 0))).toBe(false);
   });
 
   it('forces light and dark', () => {
@@ -54,14 +48,9 @@ describe('House schedule', () => {
     expect(resolveHouseTheme({ mode: 'dark', now: at(12, 0) })).toBe('house-dark');
   });
 
-  it('follows the schedule on shared devices', () => {
-    expect(resolveHouseTheme({ mode: 'auto', now: at(16, 15), prefersDark: true })).toBe('house');
-    expect(resolveHouseTheme({ mode: 'auto', now: at(20, 40), prefersDark: false })).toBe('house-dark');
-  });
-
-  it('follows the system setting on personal devices', () => {
-    expect(resolveHouseTheme({ mode: 'auto', persistent: true, prefersDark: true, now: at(12, 0) })).toBe('house-dark');
-    expect(resolveHouseTheme({ mode: 'auto', persistent: true, prefersDark: false, now: at(22, 0) })).toBe('house');
+  it('follows the system setting (prefersDark) in auto mode', () => {
+    expect(resolveHouseTheme({ mode: 'auto', prefersDark: true, now: at(12, 0) })).toBe('house-dark');
+    expect(resolveHouseTheme({ mode: 'auto', prefersDark: false, now: at(22, 0) })).toBe('house');
   });
 
   it('re-evaluates on the next minute', () => {

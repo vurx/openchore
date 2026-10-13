@@ -4868,14 +4868,14 @@ func TestExcuseChoreAndRefundMissedPenalty(t *testing.T) {
 		"reason": "Kid had a fever",
 	}, adminHeaders(), http.StatusCreated)
 
-	// Balance should be refunded back to 20!
+	// Balance should be refunded 5 pts AND credited 10 pts for normal completion = 30!
 	resp = env.expectStatus(t, "GET", fmt.Sprintf("/api/users/%d/points", kidID), nil, childHeaders(kidID), http.StatusOK)
 	decodeBody(t, resp, &pts)
-	if pts["balance"].(float64) != 20 {
-		t.Fatalf("expected balance 20 after refund, got %v", pts["balance"])
+	if pts["balance"].(float64) != 30 {
+		t.Fatalf("expected balance 30 after refund + completion points, got %v", pts["balance"])
 	}
 
-	// Re-excusing should be idempotent and not double-refund
+	// Re-excusing should be idempotent and not double-refund or double-credit
 	env.expectStatus(t, "POST", "/api/schedules/1/excuse", map[string]any{
 		"date":   today,
 		"reason": "Kid had a fever (updated)",
@@ -4883,26 +4883,25 @@ func TestExcuseChoreAndRefundMissedPenalty(t *testing.T) {
 
 	resp = env.expectStatus(t, "GET", fmt.Sprintf("/api/users/%d/points", kidID), nil, childHeaders(kidID), http.StatusOK)
 	decodeBody(t, resp, &pts)
-	if pts["balance"].(float64) != 20 {
-		t.Fatalf("expected balance to remain 20, got %v", pts["balance"])
+	if pts["balance"].(float64) != 30 {
+		t.Fatalf("expected balance to remain 30, got %v", pts["balance"])
 	}
 }
 
-func TestExcusingCompletedChoreReversesItsPoints(t *testing.T) {
+func TestExcuseAndUncompleteChore(t *testing.T) {
 	env := setupTest(t)
 	env.createAdmin(t)
 	kidID := env.createChild(t, "Kid")
 	today := time.Now().Format(model.DateFormat)
 
 	env.request(t, "POST", "/api/chores", map[string]any{
-		"title": "Already done", "category": "required", "points_value": 10,
+		"title": "Clean Room", "category": "required", "points_value": 10,
 	}, adminHeaders())
 	env.request(t, "POST", "/api/chores/1/schedules", map[string]any{
 		"assigned_to": kidID, "specific_date": today,
 	}, adminHeaders())
-	env.expectStatus(t, "POST", "/api/schedules/1/complete", map[string]any{
-		"completed_by": kidID, "completion_date": today,
-	}, adminHeaders(), http.StatusCreated)
+
+	// Excuse directly: counts as normal completion and earns 10 points
 	env.expectStatus(t, "POST", "/api/schedules/1/excuse", map[string]any{
 		"date": today, "reason": "waived",
 	}, adminHeaders(), http.StatusCreated)
@@ -4910,8 +4909,17 @@ func TestExcusingCompletedChoreReversesItsPoints(t *testing.T) {
 	resp := env.expectStatus(t, "GET", fmt.Sprintf("/api/users/%d/points", kidID), nil, adminHeaders(), http.StatusOK)
 	var points map[string]any
 	decodeBody(t, resp, &points)
+	if points["balance"].(float64) != 10 {
+		t.Fatalf("expected excused chore to award 10 points, got %v", points["balance"])
+	}
+
+	// Admin cancels excuse (uncomplete): should debit the 10 points back
+	env.expectStatus(t, "DELETE", fmt.Sprintf("/api/schedules/1/complete?date=%s", today), nil, adminHeaders(), http.StatusNoContent)
+
+	resp = env.expectStatus(t, "GET", fmt.Sprintf("/api/users/%d/points", kidID), nil, adminHeaders(), http.StatusOK)
+	decodeBody(t, resp, &points)
 	if points["balance"].(float64) != 0 {
-		t.Fatalf("expected excused completed chore to have zero net points, got %v", points["balance"])
+		t.Fatalf("expected balance to be 0 after uncompleting excused chore, got %v", points["balance"])
 	}
 }
 
@@ -4976,11 +4984,11 @@ func TestExcuseChoreOpensCoreAndBonusGate(t *testing.T) {
 		"reason": "Heavy snowstorm",
 	}, adminHeaders(), http.StatusCreated)
 
-	// Opening the gate should retroactively credit Core (20) + Bonus (30) = 50 points!
+	// Excused Req earns 10 pts, and opening the gate retroactively credits Core (20) + Bonus (30) = 60 points!
 	resp = env.expectStatus(t, "GET", fmt.Sprintf("/api/users/%d/points", kidID), nil, childHeaders(kidID), http.StatusOK)
 	decodeBody(t, resp, &pts)
-	if pts["balance"].(float64) != 50 {
-		t.Fatalf("expected 50 points after excusing required chore, got %v", pts["balance"])
+	if pts["balance"].(float64) != 60 {
+		t.Fatalf("expected 60 points after excusing required chore, got %v", pts["balance"])
 	}
 
 	// Verify streak is intact (1)

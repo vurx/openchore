@@ -595,9 +595,9 @@ func (h *ChoreHandler) Complete(w http.ResponseWriter, r *http.Request) {
 				writeError(w, http.StatusBadRequest, "photo required")
 				return
 			}
-			// Soft-deleted prior completion exists. Approved + pending rows
+			// Soft-deleted prior completion exists. Approved, pending and excused rows
 			// are revived in place.
-			if existing.Status == model.StatusApproved || existing.Status == model.StatusPending {
+			if existing.Status == model.StatusApproved || existing.Status == model.StatusPending || existing.Status == model.StatusExcused {
 				// If a child is re-completing a chore that requires approval, reset to pending
 				if chore.RequiresApproval && (user == nil || user.Role != "admin") {
 					existing.Status = model.StatusPending
@@ -623,12 +623,15 @@ func (h *ChoreHandler) Complete(w http.ResponseWriter, r *http.Request) {
 						h.queueReview(existing.ID)
 					}
 				}
-				if user != nil && user.Role == "admin" && existing.Status == model.StatusPending {
+				if user != nil && user.Role == "admin" && (existing.Status == model.StatusPending || existing.Status == model.StatusExcused) {
 					existing.Status = model.StatusApproved
 					existing.ApprovedBy = &user.ID
 					now := time.Now()
 					existing.ApprovedAt = &now
 					_ = h.store.UpdateCompletionStatus(r.Context(), existing.ID, model.StatusApproved, user.ID)
+				} else if existing.Status == model.StatusExcused && (user == nil || user.Role != "admin") && !chore.RequiresApproval {
+					existing.Status = model.StatusApproved
+					_ = h.store.UpdateCompletionStatus(r.Context(), existing.ID, model.StatusApproved, 0)
 				}
 				if existing.Status == model.StatusApproved {
 					// Re-checking is a new points event, while the preserved completion

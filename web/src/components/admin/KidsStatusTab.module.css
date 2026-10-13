@@ -272,8 +272,10 @@
 }
 
 .ringExcused {
-  margin: 0 4px 0 2px;
   border-style: dotted;
+  border-color: var(--done);
+  color: var(--done);
+  background: color-mix(in srgb, var(--done) 18%, transparent);
 }
 
 .choreWell {

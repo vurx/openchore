@@ -23,38 +23,34 @@ export function resolveSkin(theme: string | null | undefined, age?: number | nul
   return 'sunroom';
 }
 
-/** Shared devices go dark from 19:30 until 07:00, local time. */
+/** Shared devices go dark from 19:30 until 07:00, local time. (Deprecated: time-based schedule cancelled) */
 export const DARK_FROM_MINUTES = 19 * 60 + 30;
 export const DARK_UNTIL_MINUTES = 7 * 60;
 
-/** Whether the House schedule is in its dark window at `now` (local time). */
-export function isScheduledDark(now: Date): boolean {
-  const m = now.getHours() * 60 + now.getMinutes();
-  return m >= DARK_FROM_MINUTES || m < DARK_UNTIL_MINUTES;
+/** Whether the House schedule is in its dark window at `now` (local time). Always false since automatic time-based color switching was cancelled. */
+export function isScheduledDark(_now?: Date): boolean {
+  return false;
 }
 
 export interface HouseThemeInput {
   mode: HouseMode;
   /** A personal (persistent / OIDC) session: follow the system setting. */
   persistent?: boolean;
-  /** `prefers-color-scheme: dark`, only consulted for persistent sessions. */
+  /** `prefers-color-scheme: dark`, consulted for auto mode. */
   prefersDark?: boolean;
-  /** The current local time, only consulted for shared sessions. */
-  now: Date;
+  /** The current local time (legacy). */
+  now?: Date;
 }
 
 /**
  * Pick House or House Dark.
  * - `light` / `dark` force a mode.
- * - `auto` on a personal device follows `prefers-color-scheme`.
- * - `auto` on a shared device (tap/PIN session, ambient display) follows the
- *   schedule: dark 19:30 – 07:00.
+ * - `auto` follows system setting (`prefers-color-scheme`).
  */
-export function resolveHouseTheme({ mode, persistent, prefersDark, now }: HouseThemeInput): HouseTheme {
+export function resolveHouseTheme({ mode, prefersDark }: HouseThemeInput): HouseTheme {
   if (mode === 'light') return 'house';
   if (mode === 'dark') return 'house-dark';
-  if (persistent) return prefersDark ? 'house-dark' : 'house';
-  return isScheduledDark(now) ? 'house-dark' : 'house';
+  return prefersDark ? 'house-dark' : 'house';
 }
 
 /** Milliseconds until the next wall-clock minute, for re-evaluating the schedule. */

@@ -236,6 +236,34 @@ export const KidsStatusTab: React.FC<{ onPendingChange?: (count: number) => void
     }
   };
 
+  const handleUnexcuse = async (e: React.MouseEvent, kid: KidStatus, chore: ScheduledChore) => {
+    e.stopPropagation();
+    const key = `${chore.schedule_id}-${chore.date}`;
+    if (toggling) return;
+    const confirmMsg = t('admin.kidsStatusTab.confirmUnexcuse', {
+      title: chore.title,
+      name: kid.user.name,
+      defaultValue: `取消“${chore.title}”的免做并扣除相应积分？`,
+    });
+    if (!window.confirm(confirmMsg)) {
+      return;
+    }
+    setToggling(key);
+    setActionError(null);
+    try {
+      await api.chores.uncomplete(chore.schedule_id, chore.date);
+      await load();
+    } catch (err) {
+      const rawMsg = err instanceof Error ? err.message : String(err);
+      setActionError(t('admin.kidsStatusTab.toggleError', {
+        title: chore.title,
+        error: rawMsg,
+      }));
+    } finally {
+      setToggling(null);
+    }
+  };
+
   useEffect(() => { load(); }, [load]);
 
   const toggleExpand = (id: number) => {
@@ -465,35 +493,32 @@ export const KidsStatusTab: React.FC<{ onPendingChange?: (count: number) => void
                             const isPending = c.completion_status === 'pending';
                             const isExcused = c.completion_status === 'excused';
                             const key = `${c.schedule_id}-${c.date}`;
-                            const label = c.completed
-                              ? t('admin.kidsStatusTab.markNotDone', { title: c.title, name: kid.user.name })
-                              : t('admin.kidsStatusTab.markDone', { title: c.title, name: kid.user.name });
+                            const label = isExcused
+                              ? t('admin.kidsStatusTab.unexcuseButton', { defaultValue: '取消免做' })
+                              : c.completed
+                                ? t('admin.kidsStatusTab.markNotDone', { title: c.title, name: kid.user.name })
+                                : t('admin.kidsStatusTab.markDone', { title: c.title, name: kid.user.name });
                             return (
-                              <li key={key} className={clsx(styles.chore, c.completed && styles.choreDone)}>
-                                {isExcused ? (
-                                  <span className={clsx(styles.ring, styles.ringExcused)} aria-hidden>
-                                    <Icon name="check" />
+                              <li key={key} className={clsx(styles.chore, (c.completed || isExcused) && styles.choreDone)}>
+                                <button
+                                  type="button"
+                                  className={styles.check}
+                                  onClick={(e) => isExcused ? handleUnexcuse(e, kid, c) : handleToggle(e, kid, c)}
+                                  disabled={toggling !== null}
+                                  aria-label={label}
+                                  title={label}
+                                >
+                                  <span className={clsx(
+                                    styles.ring,
+                                    isExcused && styles.ringExcused,
+                                    c.completed && !isPending && !isExcused && styles.ringDone,
+                                    isPending && styles.ringWaiting,
+                                  )}>
+                                    {toggling === key
+                                      ? <Loader2 aria-hidden className={ui.spin} />
+                                      : (c.completed || isExcused) && <Icon name="check" />}
                                   </span>
-                                ) : (
-                                  <button
-                                    type="button"
-                                    className={styles.check}
-                                    onClick={(e) => handleToggle(e, kid, c)}
-                                    disabled={toggling !== null}
-                                    aria-label={label}
-                                    title={label}
-                                  >
-                                    <span className={clsx(
-                                      styles.ring,
-                                      c.completed && !isPending && styles.ringDone,
-                                      isPending && styles.ringWaiting,
-                                    )}>
-                                      {toggling === key
-                                        ? <Loader2 aria-hidden className={ui.spin} />
-                                        : c.completed && <Icon name="check" />}
-                                    </span>
-                                  </button>
-                                )}
+                                </button>
                                 <IconWell icon={c.icon} cat={cat} className={styles.choreWell} />
                                 <span className={styles.choreText}>
                                   <span className={styles.choreTitle}>{c.title}</span>
@@ -503,7 +528,7 @@ export const KidsStatusTab: React.FC<{ onPendingChange?: (count: number) => void
                                     isPending && styles.statusWaiting,
                                   )} title={isExcused ? c.ai_feedback || undefined : undefined}>
                                     {isExcused
-                                      ? t('admin.kidsStatusTab.statusExcused')
+                                      ? t('admin.kidsStatusTab.statusExcused', { points: c.points_value })
                                       : c.completed && isPending
                                         ? t('admin.kidsStatusTab.statusPending')
                                         : c.completed
@@ -533,7 +558,16 @@ export const KidsStatusTab: React.FC<{ onPendingChange?: (count: number) => void
                                     <img src={c.photo_url} alt="" className={styles.photoThumbImg} />
                                   </button>
                                 )}
-                                {!c.completed && (
+                                {isExcused ? (
+                                  <button
+                                    type="button"
+                                    className={styles.excuse}
+                                    onClick={(e) => handleUnexcuse(e, kid, c)}
+                                    title={t('admin.kidsStatusTab.unexcuseButtonTooltip', { defaultValue: '取消免做并扣除相应积分' })}
+                                  >
+                                    {t('admin.kidsStatusTab.unexcuseButton', { defaultValue: '取消免做' })}
+                                  </button>
+                                ) : !c.completed && (
                                   <button
                                     type="button"
                                     className={styles.excuse}
