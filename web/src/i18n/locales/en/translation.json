@@ -358,6 +358,7 @@
       "subtitle": "Everyone's day at a glance, {{date}}",
       "tapHint": "Tap a person to see today's chores. Tap a chore's circle to mark it done on their behalf.",
       "toggleError": "Couldn't update \"{{title}}\": {{error}}",
+      "errorFutureChores": "Future chores cannot be marked complete",
       "waitingHeading": "Waiting for you",
       "historyHeading": "Chore status",
       "dateNavigator": "Date navigation",
@@ -365,6 +366,7 @@
       "nextDay": "Next day",
       "pickDate": "Pick date",
       "historyBadge": "History",
+      "futureBadge": "Future",
       "todayBtn": "Today"
     },
     "modal": {
@@ -1150,7 +1152,21 @@
       "listLabel": "Your chores",
       "overview": "Your day",
       "pending_one": "{{count}} pt waiting for Must do",
-      "pending_other": "{{count}} pts waiting for Must do"
+      "pending_other": "{{count}} pts waiting for Must do",
+      "streakTitle": "{{count}}-day streak",
+      "streakTitleZero": "Streak Challenge",
+      "streakBest": "Best: {{count}}d",
+      "streakAchieved": "Streak secured for today!",
+      "streakAchievedSub": "All Must-do and Daily chores done. Streak kept alive!",
+      "streakProgress": "Streak progress: {{done}} / {{total}}",
+      "streakRemaining_one": "{{count}} chore left for streak",
+      "streakRemaining_other": "{{count}} chores left for streak",
+      "streakRuleTip": "Finish all Must-do & Daily chores to secure streak · Bonus chores don't affect streak",
+      "streakRequiredBadge": "Streak goal",
+      "bonusBadge": "Bonus points",
+      "streakNextMilestone": "Reach {{count}} more days for {{label}} (+{{points}} pts)",
+      "streakRestDay": "No required chores today. Streak safe!",
+      "streakBreakdown": "Must do: {{essential}} left · Daily: {{daily}} left"
     },
     "upload": {
       "doneBody": "Nice work. You can close this page now.",

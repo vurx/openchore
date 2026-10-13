@@ -122,16 +122,18 @@ export interface CategoryHeaderProps {
   /** Heading level for the label. Defaults to h2. */
   as?: 'h2' | 'h3' | 'h4' | 'div';
   className?: string;
+  extra?: React.ReactNode;
 }
 
 /** The label above a group of chores: shape, name and a count. */
-export function CategoryHeader({ cat, count, label, as: Tag = 'h2', className }: CategoryHeaderProps) {
+export function CategoryHeader({ cat, count, label, as: Tag = 'h2', className, extra }: CategoryHeaderProps) {
   const { t } = useTranslation();
   return (
     <div className={clsx('oc-cathead', className)}>
       <Tag className="oc-cathead__l">
         <CategoryMark cat={cat} />
         {label ?? t(`design.category.${cat}`)}
+        {extra}
       </Tag>
       {count != null && <span className="oc-cathead__n">{count}</span>}
     </div>

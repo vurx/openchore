@@ -64,9 +64,21 @@ export function ChoreGroups({ chores, viewOf, togglingIds, tts, onToggle, onPhot
         const count = cat === 'bonus'
           ? t('kid.today.bonusCount', { count: bonusPts })
           : t('design.progress.count', { done, total: list.length });
+        const isStreakRequired = cat === 'essential' || cat === 'daily';
+        const badge = isStreakRequired ? (
+          <span className={s.streakCatBadge} title={t('kid.today.streakRuleTip')}>
+            <Icon name="flame" size={11} fill />
+            <span>{t('kid.today.streakRequiredBadge')}</span>
+          </span>
+        ) : (
+          <span className={s.bonusCatBadge} title={t('kid.today.streakRuleTip')}>
+            <Icon name="spark" size={11} />
+            <span>{t('kid.today.bonusBadge')}</span>
+          </span>
+        );
         return (
           <section key={cat} className={s.group}>
-            <CategoryHeader cat={cat} count={count} as={headingLevel} />
+            <CategoryHeader cat={cat} count={count} as={headingLevel} extra={badge} />
             {list.map((c, i) => (
               <ChoreItem
                 key={`${c.schedule_id}-${c.date}`}

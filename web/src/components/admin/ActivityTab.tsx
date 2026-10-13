@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import clsx from 'clsx';
-import { Undo2, Calendar, User as UserIcon } from 'lucide-react';
+import { Undo2, Calendar, User as UserIcon, ChevronDown, X } from 'lucide-react';
 import { api } from '../../api';
 import type { User, PointTransaction } from '../../types';
 import { Avatar, Icon, type IconName } from '../../design';
@@ -192,32 +192,56 @@ export const ActivityTab: React.FC = () => {
 
       {/* Filter Bar */}
       <div className={styles.filterBar}>
-        <div className={styles.filterGroup}>
-          <UserIcon size={16} aria-hidden />
-          <select
-            className={styles.select}
-            value={selectedUserId}
-            onChange={e => setSelectedUserId(e.target.value === 'all' ? 'all' : Number(e.target.value))}
-            aria-label={t('admin.activityTab.filterUser')}
-          >
-            <option value="all">{t('admin.activityTab.allUsers')}</option>
-            {users.map(u => (
-              <option key={u.id} value={u.id}>
-                {u.name}
-              </option>
-            ))}
-          </select>
-        </div>
+        <div className={styles.filterControls}>
+          <div className={clsx(styles.filterField, styles.filterFieldUser)}>
+            <UserIcon size={15} className={styles.fieldIcon} aria-hidden />
+            <select
+              className={styles.select}
+              value={selectedUserId}
+              onChange={e => setSelectedUserId(e.target.value === 'all' ? 'all' : Number(e.target.value))}
+              aria-label={t('admin.activityTab.filterUser')}
+            >
+              <option value="all">{t('admin.activityTab.allUsers')}</option>
+              {users.map(u => (
+                <option key={u.id} value={u.id}>
+                  {u.name}
+                </option>
+              ))}
+            </select>
+            <ChevronDown size={14} className={styles.selectCaret} aria-hidden />
+          </div>
 
-        <div className={styles.filterGroup}>
-          <Calendar size={16} aria-hidden />
-          <input
-            type="date"
-            className={styles.dateInput}
-            value={selectedDate}
-            onChange={e => setSelectedDate(e.target.value)}
-            aria-label={t('admin.activityTab.filterDate')}
-          />
+          <div className={clsx(styles.filterField, styles.filterFieldDate, selectedDate && styles.filterFieldActive)}>
+            <Calendar size={15} className={styles.fieldIcon} aria-hidden />
+            <span className={clsx(styles.dateValue, !selectedDate && styles.datePlaceholder)}>
+              {selectedDate
+                ? (i18n.language.startsWith('zh')
+                    ? `${selectedDate.split('-')[0]}年${parseInt(selectedDate.split('-')[1], 10)}月${parseInt(selectedDate.split('-')[2], 10)}日`
+                    : new Date(`${selectedDate}T00:00:00`).toLocaleDateString(i18n.language, { year: 'numeric', month: 'short', day: 'numeric' }))
+                : t('admin.activityTab.filterDate')}
+            </span>
+            <input
+              type="date"
+              className={styles.dateInputOverlay}
+              value={selectedDate}
+              onChange={e => setSelectedDate(e.target.value)}
+              aria-label={t('admin.activityTab.filterDate')}
+            />
+            {selectedDate && (
+              <button
+                type="button"
+                className={styles.clearDateBtn}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setSelectedDate('');
+                }}
+                title={t('admin.activityTab.allDates')}
+                aria-label={t('admin.activityTab.allDates')}
+              >
+                <X size={13} aria-hidden />
+              </button>
+            )}
+          </div>
         </div>
 
         <div className={styles.quickDates} role="group" aria-label={t('admin.activityTab.quickDates')}>

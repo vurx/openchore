@@ -5,6 +5,7 @@ import type { ScheduledChore, User } from '../../types';
 import { gates, isDone, type ChoreView } from './choreView';
 import { GoalNudge } from './GoalCard';
 import { CAT_ORDER, ChoreGroups, Notice, PausedNotice } from './parts';
+import { TodayStreakCard } from './TodayStreakCard';
 import type { KidData } from './useKidData';
 import s from './kid.module.css';
 
@@ -72,6 +73,9 @@ export function TodayScreen({ user, data, now, topBar, viewOf, tts, onToggle, on
             {earned > 0 && <span>{t('kid.today.earned', { count: earned })}</span>}
             {pending > 0 && <span>{t('kid.today.pending', { count: pending })}</span>}
           </p>
+        )}
+        {!user.paused && !loading && (
+          <TodayStreakCard streak={data.streak} chores={chores} />
         )}
       </section>
 

@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import clsx from 'clsx';
-import { RefreshCw, Loader2, ChevronLeft, ChevronRight } from 'lucide-react';
+import { RefreshCw, Loader2, ChevronLeft, ChevronRight, AlertCircle, X } from 'lucide-react';
 import { api } from '../../api';
 import type { User, ScheduledChore, UserStreakData, PointBalance, PendingCompletion } from '../../types';
 import { Avatar, CategoryHeader, CategoryMark, Icon, catFromCategory } from '../../design';
@@ -176,6 +176,14 @@ export const KidsStatusTab: React.FC<{ onPendingChange?: (count: number) => void
       load();
     } catch (err) {
       console.error('Failed to excuse chore:', err);
+      const rawMsg = err instanceof Error ? err.message : String(err);
+      const friendlyMsg = rawMsg.includes('future chores cannot be completed')
+        ? t('admin.kidsStatusTab.errorFutureChores', { defaultValue: '未来家务无法提前标记完成' })
+        : rawMsg;
+      setActionError(t('admin.kidsStatusTab.toggleError', {
+        title: chore.title,
+        error: friendlyMsg,
+      }));
     }
   };
 
@@ -183,6 +191,21 @@ export const KidsStatusTab: React.FC<{ onPendingChange?: (count: number) => void
   // assignee is credited, and no photo is needed since the parent vouches.
   const [toggling, setToggling] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
+
+  // Clear action error whenever date changes
+  useEffect(() => {
+    setActionError(null);
+  }, [selectedDate]);
+
+  // Auto-dismiss action error after 4 seconds
+  useEffect(() => {
+    if (!actionError) return;
+    const timer = setTimeout(() => {
+      setActionError(null);
+    }, 4000);
+    return () => clearTimeout(timer);
+  }, [actionError]);
+
   const handleToggle = async (e: React.MouseEvent, kid: KidStatus, chore: ScheduledChore) => {
     e.stopPropagation();
     const key = `${chore.schedule_id}-${chore.date}`;
@@ -200,9 +223,13 @@ export const KidsStatusTab: React.FC<{ onPendingChange?: (count: number) => void
       }
       await load();
     } catch (err) {
+      const rawMsg = err instanceof Error ? err.message : String(err);
+      const friendlyMsg = rawMsg.includes('future chores cannot be completed')
+        ? t('admin.kidsStatusTab.errorFutureChores', { defaultValue: '未来家务无法提前标记完成' })
+        : rawMsg;
       setActionError(t('admin.kidsStatusTab.toggleError', {
         title: chore.title,
-        error: err instanceof Error ? err.message : String(err),
+        error: friendlyMsg,
       }));
     } finally {
       setToggling(null);
@@ -250,9 +277,14 @@ export const KidsStatusTab: React.FC<{ onPendingChange?: (count: number) => void
                 onChange={e => e.target.value && setSelectedDate(e.target.value)}
                 aria-label={t('admin.kidsStatusTab.pickDate', { defaultValue: '选择日期' })}
               />
-              {!isToday && (
+              {selectedDate < today && (
                 <span className={clsx(ui.badgeOutline, styles.historyBadge)}>
                   {t('admin.kidsStatusTab.historyBadge', { defaultValue: '历史' })}
+                </span>
+              )}
+              {selectedDate > today && (
+                <span className={clsx(ui.badgeOutline, styles.historyBadge, styles.futureBadge)}>
+                  {t('admin.kidsStatusTab.futureBadge', { defaultValue: '未来' })}
                 </span>
               )}
             </div>
@@ -526,7 +558,20 @@ export const KidsStatusTab: React.FC<{ onPendingChange?: (count: number) => void
       </div>
 
       {actionError && (
-        <p className={ui.msgError} role="alert">{actionError}</p>
+        <div className={styles.toastContainer} role="alert">
+          <div className={styles.toast}>
+            <AlertCircle size={18} className={styles.toastIcon} aria-hidden />
+            <span className={styles.toastMsg}>{actionError}</span>
+            <button
+              type="button"
+              className={styles.toastClose}
+              onClick={() => setActionError(null)}
+              aria-label={t('modal.close', { defaultValue: '关闭' })}
+            >
+              <X size={13} aria-hidden />
+            </button>
+          </div>
+        </div>
       )}
 
       {viewingPhoto && (

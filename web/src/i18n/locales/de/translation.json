@@ -358,6 +358,7 @@
       "subtitle": "Der Tag aller auf einen Blick, {{date}}",
       "tapHint": "Tippe auf eine Person, um die heutigen Aufgaben zu sehen. Tippe auf den Kreis einer Aufgabe, um sie für sie zu erledigen.",
       "toggleError": "„{{title}}“ konnte nicht aktualisiert werden: {{error}}",
+      "errorFutureChores": "Zukünftige Aufgaben können nicht im Voraus erledigt werden",
       "waitingHeading": "Wartet auf dich",
       "historyHeading": "Aufgabenübersicht",
       "dateNavigator": "Datumsnavigation",
@@ -365,6 +366,7 @@
       "nextDay": "Nächster Tag",
       "pickDate": "Datum auswählen",
       "historyBadge": "Verlauf",
+      "futureBadge": "Zukunft",
       "todayBtn": "Heute"
     },
     "modal": {
@@ -1150,7 +1152,21 @@
       "listLabel": "Deine Aufgaben",
       "overview": "Dein Tag",
       "pending_one": "{{count}} Pkt. warten auf die Pflichten",
-      "pending_other": "{{count}} Pkt. warten auf die Pflichten"
+      "pending_other": "{{count}} Pkt. warten auf die Pflichten",
+      "streakTitle": "{{count}} Tage Serie",
+      "streakTitleZero": "Serien-Herausforderung",
+      "streakBest": "Beste: {{count}}T",
+      "streakAchieved": "Heutige Serie gesichert!",
+      "streakAchievedSub": "Alle Pflicht- und täglichen Aufgaben erledigt!",
+      "streakProgress": "Serien-Fortschritt: {{done}} / {{total}}",
+      "streakRemaining_one": "Noch {{count}} Aufgabe für die Serie",
+      "streakRemaining_other": "Noch {{count}} Aufgaben für die Serie",
+      "streakRuleTip": "Erledige alle Pflicht- und täglichen Aufgaben für die Serie",
+      "streakRequiredBadge": "Für Serie",
+      "bonusBadge": "Extrapunkte",
+      "streakNextMilestone": "Noch {{count}} Tage bis {{label}} (+{{points}} Pkt.)",
+      "streakRestDay": "Heute keine Pflichtaufgaben. Serie sicher!",
+      "streakBreakdown": "Pflicht: noch {{essential}} · Täglich: noch {{daily}}"
     },
     "upload": {
       "doneBody": "Gut gemacht. Du kannst die Seite jetzt schließen.",

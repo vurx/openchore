@@ -264,14 +264,14 @@ export const RewardsTab: React.FC = () => {
 
   return (
     <div className={ui.page}>
-      <div className={ui.pageHead}>
-        <div>
+      <div className={styles.sectionHeader}>
+        <div className={styles.headRow}>
           <h2 className={ui.pageTitle}>{t('admin.rewardsTab.rewardsStoreTitle')}</h2>
-          <p className={ui.pageSub}>{t('admin.rewardsTab.subtitle')}</p>
+          <button type="button" className={ui.btnPrimary} onClick={() => { setEditingReward(null); setShowForm(true); }}>
+            <Icon name="plus" /> {t('admin.rewardsTab.addReward')}
+          </button>
         </div>
-        <button type="button" className={ui.btnPrimary} onClick={() => { setEditingReward(null); setShowForm(true); }}>
-          <Icon name="plus" /> {t('admin.rewardsTab.addReward')}
-        </button>
+        <p className={ui.pageSub}>{t('admin.rewardsTab.subtitle')}</p>
       </div>
 
       {showForm && (
@@ -338,16 +338,16 @@ export const RewardsTab: React.FC = () => {
       )}
 
       <section className={ui.section}>
-        <div className={ui.pageHead}>
-          <div>
+        <div className={styles.sectionHeader}>
+          <div className={styles.headRow}>
             <h2 className={ui.pageTitle}>{t('admin.rewardsTab.streakMilestonesTitle')}</h2>
-            <p className={ui.pageSub}>{t('admin.rewardsTab.streakSubtitle')}</p>
+            {!showStreakForm && (
+              <button type="button" className={ui.btnPrimary} onClick={() => setShowStreakForm(true)}>
+                <Icon name="plus" /> {t('admin.rewardsTab.addMilestone')}
+              </button>
+            )}
           </div>
-          {!showStreakForm && (
-            <button type="button" className={ui.btnPrimary} onClick={() => setShowStreakForm(true)}>
-              <Icon name="plus" /> {t('admin.rewardsTab.addMilestone')}
-            </button>
-          )}
+          <p className={ui.pageSub}>{t('admin.rewardsTab.streakSubtitle')}</p>
         </div>
 
         {showStreakForm && <StreakRewardForm onSave={() => { setShowStreakForm(false); load(); }} onCancel={() => setShowStreakForm(false)} />}

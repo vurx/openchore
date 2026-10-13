@@ -323,7 +323,7 @@
       "allDone": "全部搞定",
       "awaitingApproval_one": "{{count}} 项待审批",
       "awaitingApproval_other": "{{count}} 项待审批",
-      "bonusHint": "所有必做与每日家务完成后解锁奖励家务",
+      "bonusHint": "所有必做与日常家务完成后解锁激励家务",
       "catCount": "{{done}} / {{total}}",
       "childLoadError": "无法加载该孩子的家务。",
       "confirmUndo": "确定要为 {{name}} 撤销“{{title}}”吗？已获得的积分将被扣回。",
@@ -358,6 +358,7 @@
       "subtitle": "{{date}} 全家一天概况",
       "tapHint": "点击成员查看今日家务。点击家务圆圈可代其标记完成。",
       "toggleError": "更新“{{title}}”失败：{{error}}",
+      "errorFutureChores": "未来家务无法提前标记完成",
       "waitingHeading": "等待处理",
       "historyHeading": "任务概况",
       "dateNavigator": "日期切换",
@@ -365,6 +366,7 @@
       "nextDay": "后一天",
       "pickDate": "选择日期",
       "historyBadge": "历史",
+      "futureBadge": "未来",
       "todayBtn": "回到今天"
     },
     "modal": {
@@ -442,11 +444,11 @@
       "streakDays_one": "{{count}} 天",
       "streakDays_other": "{{count}} 天",
       "streakFieldBonusPts": "奖励积分",
-      "streakFieldDays": "连续天数",
+      "streakFieldDays": "连胜天数",
       "streakFieldLabel": "标签",
       "streakFieldLabelPlaceholder": "例如：周常小能手！",
       "streakMilestonesTitle": "连胜里程碑",
-      "streakSubtitle": "连续多天完成家务的额外奖励积分。",
+      "streakSubtitle": "达成连胜目标的额外奖励积分。",
       "subtitle": "积分可兑换的好物。",
       "unlimited": "无限制",
       "update": "更新"
@@ -478,7 +480,7 @@
       "labelDate": "日期",
       "labelDueBy": "截止时间（截止点）",
       "labelEvery": "每隔",
-      "labelIfLate": "逾期完成后",
+      "labelIfLate": "超时完成后",
       "labelMultiplier": "积分倍数（Multiplier）",
       "labelScheduleType": "计划类型",
       "labelStartingFrom": "起始日期",
@@ -852,8 +854,8 @@
     },
     "category": {
       "essential": "必做",
-      "daily": "每日",
-      "bonus": "奖励"
+      "daily": "日常",
+      "bonus": "激励"
     },
     "celebration": {
       "back": "返回我的列表",
@@ -862,8 +864,8 @@
       "points": "+{{count}}",
       "pointsLabel_one": "获得 {{count}} 积分",
       "pointsLabel_other": "获得 {{count}} 积分",
-      "streak_one": "连续完成 {{count}} 次",
-      "streak_other": "连续完成 {{count}} 次"
+      "streak_one": "连胜 {{count}} 天",
+      "streak_other": "连胜 {{count}} 天"
     },
     "chore": {
       "locked": "其他家务全部完成后解锁",
@@ -1097,7 +1099,7 @@
       "gone": "已兑完",
       "history": "已获得的奖励",
       "join": "加入目标",
-      "more": "还有 {{count}} 项",
+      "more": "还差 {{count}} 分",
       "progress": "{{saved}}/{{target}}",
       "redeem": "兑换",
       "redeemed": "已兑换！",
@@ -1150,7 +1152,21 @@
       "listLabel": "你的家务清单",
       "overview": "今日概览",
       "pending_one": "{{count}} 分等待必做家务完成",
-      "pending_other": "{{count}} 分等待必做家务完成"
+      "pending_other": "{{count}} 分等待必做家务完成",
+      "streakTitle": "连胜 {{count}} 天",
+      "streakTitleZero": "今日开启连胜",
+      "streakBest": "历史最佳：{{count}} 天",
+      "streakAchieved": "今日连胜已达成！",
+      "streakAchievedSub": "今日所有必做与日常家务均已搞定，连胜保持中！",
+      "streakProgress": "今日连胜进度：{{done}} / {{total}}",
+      "streakRemaining_one": "还差 {{count}} 项达成今日连胜",
+      "streakRemaining_other": "还差 {{count}} 项达成今日连胜",
+      "streakRuleTip": "完成今日所有「必做」与「日常」即可达成连胜 · 激励任务不影响连胜",
+      "streakRequiredBadge": "计入连胜",
+      "bonusBadge": "额外加分",
+      "streakNextMilestone": "再连胜 {{count}} 天可获得「{{label}}」+{{points}} 分",
+      "streakRestDay": "今天没有必做家务，连胜安全保持中",
+      "streakBreakdown": "必做剩 {{essential}} 项 · 日常剩 {{daily}} 项"
     },
     "upload": {
       "doneBody": "做得很棒！现在可以关闭此页面了。",
@@ -1167,18 +1183,18 @@
       "uploading": "上传中"
     },
     "week": {
-      "best_one": "最佳：连续 {{count}} 天",
-      "best_other": "最佳：连续 {{count}} 天",
+      "best_one": "最佳：连胜 {{count}} 天",
+      "best_other": "最佳：连胜 {{count}} 天",
       "dayEmpty": "{{day}}：无需做家务",
       "dayLabel": "{{day}}：完成 {{done}} / {{total}}",
       "days": "本周概览",
       "emptyText": "当天列表中没有家务。",
       "emptyTitle": "空闲的一天",
-      "nextMilestone_one": "再坚持 {{count}} 天即可达成 {{label}}（+{{points}} 分）",
-      "nextMilestone_other": "再坚持 {{count}} 天即可达成 {{label}}（+{{points}} 分）",
-      "streak": "连续记录",
-      "streakDays_one": "连续 {{count}} 天",
-      "streakDays_other": "连续 {{count}} 天",
+      "nextMilestone_one": "再连胜 {{count}} 天即可达成 {{label}}（+{{points}} 分）",
+      "nextMilestone_other": "再连胜 {{count}} 天即可达成 {{label}}（+{{points}} 分）",
+      "streak": "连胜记录",
+      "streakDays_one": "连胜 {{count}} 天",
+      "streakDays_other": "连胜 {{count}} 天",
       "title": "本周"
     }
   },
@@ -1264,8 +1280,8 @@
     "scorecards": "所有成员",
     "seriesAssigned": "已分配",
     "seriesCompleted": "已完成",
-    "streakDays_one": "连续 {{count}} 天",
-    "streakDays_other": "连续 {{count}} 天",
+    "streakDays_one": "连胜 {{count}} 天",
+    "streakDays_other": "连胜 {{count}} 天",
     "title": "统计报告",
     "trendDesc": "从 {{from}} 到 {{to}} 每天分配与完成的家务：已完成 {{done}} / {{assigned}} 项。"
   },
@@ -1314,8 +1330,8 @@
     "nothingToday": "今天没有家务",
     "ptsToday_one": "今日 +{{count}} 分",
     "ptsToday_other": "今日 +{{count}} 分",
-    "streak_one": "连续 {{count}} 天",
-    "streak_other": "连续 {{count}} 天",
+    "streak_one": "连胜 {{count}} 天",
+    "streak_other": "连胜 {{count}} 天",
     "nextUp": "接下来",
     "opensAt": "{{time}} 起开放",
     "dueBy": "{{time}} 前截止",

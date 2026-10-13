@@ -92,63 +92,159 @@
 /* ---------- Filters & Summary ---------- */
 .filterBar {
   display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: var(--space-2) var(--space-3);
-  padding: var(--space-2) var(--space-3);
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-3);
   background: var(--surface-raised);
   border: 1px solid var(--line);
-  border-radius: var(--radius-md, 12px);
+  border-radius: var(--radius-lg, 16px);
+  box-shadow: var(--shadow-sm, 0 1px 3px rgba(0, 0, 0, 0.04));
 }
 
-.filterGroup {
-  display: inline-flex;
+.filterControls {
+  display: flex;
+  gap: var(--space-2);
   align-items: center;
-  gap: 6px;
+}
+
+.filterField {
+  position: relative;
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  height: 38px;
+  padding: 0 10px;
+  background: var(--surface-sunk);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md, 10px);
+  transition: border-color 0.15s ease, background-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.filterField:focus-within {
+  border-color: var(--ink);
+  background: var(--surface-raised);
+}
+
+.filterFieldUser {
+  flex: 0 0 120px;
+}
+
+.filterFieldDate {
+  flex: 1 1 auto;
+  cursor: pointer;
+}
+
+.filterFieldActive {
+  background: var(--surface-raised);
+  border-color: var(--ink);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+}
+
+.fieldIcon {
+  flex: none;
+  color: var(--ink-muted);
+  margin-right: 6px;
+}
+
+.select {
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  border: none;
+  background: transparent;
+  color: var(--ink);
   font-size: 13.5px;
+  font-family: inherit;
+  font-weight: 500;
+  outline: none;
+  -webkit-appearance: none;
+  appearance: none;
+  padding-right: 18px;
+  cursor: pointer;
+}
+
+.selectCaret {
+  position: absolute;
+  right: 10px;
+  pointer-events: none;
   color: var(--ink-muted);
 }
 
-.select,
-.dateInput {
-  height: 32px;
-  padding: 0 10px;
-  border-radius: var(--radius-sm, 8px);
-  border: 1px solid var(--line);
-  background: var(--surface-sunk);
+.dateValue {
+  flex: 1;
+  min-width: 0;
+  font-size: 13.5px;
+  font-weight: 600;
   color: var(--ink);
-  font-size: 13px;
-  font-family: inherit;
-  outline: none;
-  transition: border-color 0.15s ease;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  letter-spacing: -0.01em;
+  user-select: none;
 }
 
-.select:focus,
-.dateInput:focus {
-  border-color: var(--accent);
+.datePlaceholder {
+  color: var(--ink-muted);
+  font-weight: 500;
+}
+
+.dateInputOverlay {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  cursor: pointer;
+  z-index: 1;
+}
+
+.clearDateBtn {
+  position: relative;
+  z-index: 2;
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--surface-hover, rgba(0, 0, 0, 0.08));
+  color: var(--ink-muted);
+  border: none;
+  margin-left: 6px;
+  cursor: pointer;
+  flex: none;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.clearDateBtn:hover {
+  color: var(--ink);
+  background: rgba(0, 0, 0, 0.15);
 }
 
 .quickDates {
-  display: inline-flex;
+  display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 6px;
+  flex-wrap: wrap;
 }
 
 .chipBtn {
-  height: 28px;
-  padding: 0 10px;
+  height: 30px;
+  padding: 0 12px;
   border-radius: var(--radius-pill, 9999px);
   border: 1px solid var(--line);
-  background: transparent;
+  background: var(--surface-sunk);
   color: var(--ink-muted);
   font-size: 12.5px;
   font-weight: 500;
   cursor: pointer;
   transition: all 0.15s ease;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .chipBtn:hover {
-  background: var(--surface-hover, rgba(0, 0, 0, 0.04));
+  background: var(--surface-hover, rgba(0, 0, 0, 0.05));
   color: var(--ink);
 }
 
@@ -157,6 +253,7 @@
   color: var(--surface-raised);
   border-color: var(--ink);
   font-weight: 600;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
 }
 
 .summaryCard {

@@ -116,13 +116,16 @@ export function WeekScreen({ user, data, topBar, viewOf, tts, onToggle, onPhoto,
           <span className={s.streakSub}>{t('kid.week.best', { count: streak?.longest_streak ?? 0 })}</span>
         </div>
         {streak?.next_reward && (
-          <p className={s.streakNext}>
-            {t('kid.week.nextMilestone', {
-              count: streak.next_reward.days_remaining,
-              label: streak.next_reward.label,
-              points: streak.next_reward.bonus_points,
-            })}
-          </p>
+          <div className={s.streakMilestoneRow}>
+            <span className={s.streakMilestoneIcon}>🎁</span>
+            <span className={s.streakMilestoneText}>
+              {t('kid.week.nextMilestone', {
+                count: streak.next_reward.days_remaining,
+                label: streak.next_reward.label,
+                points: streak.next_reward.bonus_points,
+              })}
+            </span>
+          </div>
         )}
       </section>
 
