@@ -23,7 +23,20 @@
         "streak_bonus": "连胜奖励"
       },
       "title": "活动记录",
-      "undoTitle": "撤销此事件"
+      "undoTitle": "撤销此事件",
+      "filterUser": "按成员筛选",
+      "allUsers": "全部成员",
+      "filterDate": "按日期筛选",
+      "quickDates": "快捷日期",
+      "allDates": "全部时间",
+      "today": "今天",
+      "yesterday": "昨天",
+      "netPoints": "净积分变化",
+      "earnedPoints": "获得积分",
+      "deductedPoints": "扣除积分",
+      "eventsTotal": "事件数",
+      "completedAt": "完成",
+      "approvedAt": "审核"
     },
     "apiTokens": {
       "addButton": "添加",
@@ -345,7 +358,14 @@
       "subtitle": "{{date}} 全家一天概况",
       "tapHint": "点击成员查看今日家务。点击家务圆圈可代其标记完成。",
       "toggleError": "更新“{{title}}”失败：{{error}}",
-      "waitingHeading": "等待处理"
+      "waitingHeading": "等待处理",
+      "historyHeading": "任务概况",
+      "dateNavigator": "日期切换",
+      "prevDay": "前一天",
+      "nextDay": "后一天",
+      "pickDate": "选择日期",
+      "historyBadge": "历史",
+      "todayBtn": "回到今天"
     },
     "modal": {
       "close": "关闭"

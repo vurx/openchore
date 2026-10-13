@@ -14,6 +14,7 @@ interface ChoreItemProps {
   tts?: boolean;
   onToggle?: () => void;
   onPhoto?: () => void;
+  onPhotoClick?: (c: ScheduledChore) => void;
   /** Speak text (or play a recorded clip). */
   onSpeak?: (text: string, audioUrl?: string) => void;
 }
@@ -27,7 +28,7 @@ export const choreDomId = (c: ScheduledChore) => `chore-${c.schedule_id}-${c.dat
  * One chore on a person's screen: the design's ChoreRow, plus what the old
  * card also carried — the description, a camera for adding photo proof, and swipe right to finish / left to undo.
  */
-export function ChoreItem({ chore, view, busy, tts, onToggle, onPhoto, onSpeak }: ChoreItemProps) {
+export function ChoreItem({ chore, view, busy, tts, onToggle, onPhoto, onPhotoClick, onSpeak }: ChoreItemProps) {
   const { t } = useTranslation();
   const wrapRef = useRef<HTMLDivElement>(null);
   const swipe = useRef<{ x: number; y: number; active: boolean; dragging: boolean }>({ x: 0, y: 0, active: false, dragging: false });
@@ -44,7 +45,8 @@ export function ChoreItem({ chore, view, busy, tts, onToggle, onPhoto, onSpeak }
 
   // --- Swipe: right to finish, left to undo (touch only) ---
   const onTouchStart = (e: React.TouchEvent) => {
-    if (!interactive || busy) return;
+    // When done, kids cannot swipe to undo!
+    if (!interactive || busy || done) return;
     const p = e.touches[0];
     swipe.current = { x: p.clientX, y: p.clientY, active: true, dragging: false };
   };
@@ -78,6 +80,12 @@ export function ChoreItem({ chore, view, busy, tts, onToggle, onPhoto, onSpeak }
     if (st.dragging && dx * (done ? -1 : 1) >= SWIPE_DISTANCE) onToggle?.();
   };
 
+  const handleRowClick = () => {
+    if (chore.photo_url && onPhotoClick) {
+      onPhotoClick(chore);
+    }
+  };
+
   const row = (
     <ChoreRow
       id={choreDomId(chore)}
@@ -94,11 +102,26 @@ export function ChoreItem({ chore, view, busy, tts, onToggle, onPhoto, onSpeak }
       onToggle={interactive ? onToggle : undefined}
       checkLabel={readOnly ? (done ? t('kid.chore.readonlyDone') : t('kid.chore.readonlyTodo')) : view.checkLabel}
       busy={busy}
-      actions={view.needsPhotoProof && onPhoto ? (
-        <button type="button" className={s.rowAction} onClick={onPhoto} aria-label={t('kid.chore.uploadPhotoProof')}>
-          <Icon name="camera" />
-        </button>
-      ) : undefined}
+      actions={
+        view.needsPhotoProof && onPhoto ? (
+          <button type="button" className={s.rowAction} onClick={onPhoto} aria-label={t('kid.chore.uploadPhotoProof')}>
+            <Icon name="camera" />
+          </button>
+        ) : chore.photo_url && onPhotoClick ? (
+          <button
+            type="button"
+            className={s.photoThumbBtn}
+            onClick={(e) => {
+              e.stopPropagation();
+              onPhotoClick(chore);
+            }}
+            title={t('kid.chore.viewPhoto', { defaultValue: '查看打卡照片' })}
+            aria-label={t('kid.chore.viewPhoto', { defaultValue: '查看打卡照片' })}
+          >
+            <img src={chore.photo_url} alt="" className={s.photoThumbImg} />
+          </button>
+        ) : undefined
+      }
     />
   );
 
@@ -106,12 +129,14 @@ export function ChoreItem({ chore, view, busy, tts, onToggle, onPhoto, onSpeak }
     <div
       ref={wrapRef}
       className={clsx(s.item, interactive && s.itemSwipe)}
-      data-swipe={interactive ? (done ? 'undo' : 'done') : undefined}
+      data-swipe={interactive && !done ? 'done' : undefined}
       onTouchStart={onTouchStart}
       onTouchMove={onTouchMove}
       onTouchEnd={onTouchEnd}
+      onClick={handleRowClick}
+      style={{ cursor: chore.photo_url && onPhotoClick ? 'pointer' : undefined }}
     >
-      {readOnly ? <fieldset disabled className={s.readonly}>{row}</fieldset> : row}
+      {readOnly ? <div className={s.readonly}>{row}</div> : row}
       {chore.description && view.state !== 'done' && (
         <p className={s.caption}>{chore.description}</p>
       )}

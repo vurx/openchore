@@ -1,13 +1,14 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import clsx from 'clsx';
-import { RefreshCw, Loader2 } from 'lucide-react';
+import { RefreshCw, Loader2, ChevronLeft, ChevronRight } from 'lucide-react';
 import { api } from '../../api';
 import type { User, ScheduledChore, UserStreakData, PointBalance, PendingCompletion } from '../../types';
 import { Avatar, CategoryHeader, CategoryMark, Icon, catFromCategory } from '../../design';
 import { localDateStr } from '../../utils';
 import { ApprovalList } from './ApprovalList';
 import { IconWell, personColor } from './pickers';
+import Modal from '../Modal/Modal';
 import ui from './ui.module.css';
 import styles from './KidsStatusTab.module.css';
 
@@ -68,6 +69,12 @@ function breakdownFor(chores: ScheduledChore[]): Breakdown {
   };
 }
 
+function shiftDay(dateStr: string, delta: number): string {
+  const d = new Date(`${dateStr}T00:00:00`);
+  d.setDate(d.getDate() + delta);
+  return localDateStr(d);
+}
+
 export const KidsStatusTab: React.FC<{ onPendingChange?: (count: number) => void }> = ({ onPendingChange }) => {
   const { t, i18n } = useTranslation();
   const [kids, setKids] = useState<KidStatus[]>([]);
@@ -77,8 +84,17 @@ export const KidsStatusTab: React.FC<{ onPendingChange?: (count: number) => void
   const [error, setError] = useState<string | null>(null);
   const [expanded, setExpanded] = useState<Set<number>>(new Set());
   const [refreshing, setRefreshing] = useState(false);
+  const [selectedDate, setSelectedDate] = useState(() => localDateStr(new Date()));
+  const [viewingPhoto, setViewingPhoto] = useState<{
+    title: string;
+    url: string;
+    date?: string;
+    status?: string | null;
+    aiFeedback?: string | null;
+  } | null>(null);
 
-  const today = localDateStr(new Date());
+  const today = useMemo(() => localDateStr(new Date()), []);
+  const isToday = selectedDate === today;
 
   const load = useCallback(async () => {
     setRefreshing(true);
@@ -111,7 +127,7 @@ export const KidsStatusTab: React.FC<{ onPendingChange?: (count: number) => void
         children.map(async (kid): Promise<KidStatus> => {
           try {
             const [chores, streakData] = await Promise.all([
-              api.users.getChores(kid.id, 'daily', today),
+              api.users.getChores(kid.id, 'daily', selectedDate),
               api.streaks.getForUser(kid.id).catch<UserStreakData>(() => ({
                 current_streak: 0,
                 longest_streak: 0,
@@ -148,7 +164,7 @@ export const KidsStatusTab: React.FC<{ onPendingChange?: (count: number) => void
       setLoading(false);
       setRefreshing(false);
     }
-  }, [today, t, onPendingChange]);
+  }, [selectedDate, t, onPendingChange]);
 
   const handleExcuse = async (e: React.MouseEvent, chore: ScheduledChore) => {
     e.stopPropagation();
@@ -205,24 +221,72 @@ export const KidsStatusTab: React.FC<{ onPendingChange?: (count: number) => void
 
   if (loading) return <p className={ui.emptyInline}>{t('admin.kidsStatusTab.loading')}</p>;
 
-  const dateLabel = new Date().toLocaleDateString(i18n.language, { weekday: 'long', month: 'long', day: 'numeric' });
+  const dateLabel = new Date(`${selectedDate}T00:00:00`).toLocaleDateString(i18n.language, { weekday: 'long', month: 'long', day: 'numeric' });
 
   return (
     <div className={ui.page}>
       <div className={ui.pageHead}>
         <div>
-          <h2 className={ui.pageTitle}>{t('admin.kidsStatusTab.heading')}</h2>
+          <h2 className={ui.pageTitle}>{isToday ? t('admin.kidsStatusTab.heading') : t('admin.kidsStatusTab.historyHeading', { defaultValue: '任务概况' })}</h2>
           <p className={ui.pageSub}>{t('admin.kidsStatusTab.subtitle', { date: dateLabel })}</p>
         </div>
-        <button
-          type="button"
-          className={ui.btnGhost}
-          onClick={load}
-          disabled={refreshing}
-          title={t('admin.kidsStatusTab.refreshTitle')}
-        >
-          <RefreshCw aria-hidden className={refreshing ? ui.spin : undefined} /> {t('admin.kidsStatusTab.refreshLabel')}
-        </button>
+
+        <div className={styles.dateNav}>
+          <div className={styles.dateNavControls} role="group" aria-label={t('admin.kidsStatusTab.dateNavigator', { defaultValue: '日期切换' })}>
+            <button
+              type="button"
+              className={styles.dateBtn}
+              onClick={() => setSelectedDate(d => shiftDay(d, -1))}
+              title={t('admin.kidsStatusTab.prevDay', { defaultValue: '前一天' })}
+              aria-label={t('admin.kidsStatusTab.prevDay', { defaultValue: '前一天' })}
+            >
+              <ChevronLeft size={16} aria-hidden />
+            </button>
+            <div className={styles.dateInputWrap}>
+              <input
+                type="date"
+                className={styles.dateInput}
+                value={selectedDate}
+                onChange={e => e.target.value && setSelectedDate(e.target.value)}
+                aria-label={t('admin.kidsStatusTab.pickDate', { defaultValue: '选择日期' })}
+              />
+              {!isToday && (
+                <span className={clsx(ui.badgeOutline, styles.historyBadge)}>
+                  {t('admin.kidsStatusTab.historyBadge', { defaultValue: '历史' })}
+                </span>
+              )}
+            </div>
+            <button
+              type="button"
+              className={styles.dateBtn}
+              onClick={() => setSelectedDate(d => shiftDay(d, 1))}
+              title={t('admin.kidsStatusTab.nextDay', { defaultValue: '后一天' })}
+              aria-label={t('admin.kidsStatusTab.nextDay', { defaultValue: '后一天' })}
+            >
+              <ChevronRight size={16} aria-hidden />
+            </button>
+          </div>
+
+          {!isToday && (
+            <button
+              type="button"
+              className={clsx(ui.btnGhost, styles.todayBtn)}
+              onClick={() => setSelectedDate(today)}
+            >
+              {t('admin.kidsStatusTab.todayBtn', { defaultValue: '回到今天' })}
+            </button>
+          )}
+
+          <button
+            type="button"
+            className={ui.btnGhost}
+            onClick={load}
+            disabled={refreshing}
+            title={t('admin.kidsStatusTab.refreshTitle')}
+          >
+            <RefreshCw aria-hidden className={refreshing ? ui.spin : undefined} /> {t('admin.kidsStatusTab.refreshLabel')}
+          </button>
+        </div>
       </div>
 
       {error && <p className={ui.msgError} role="alert">{error}</p>}
@@ -417,6 +481,26 @@ export const KidsStatusTab: React.FC<{ onPendingChange?: (count: number) => void
                                             : t('admin.kidsStatusTab.statusIdle', { points: c.points_value })}
                                   </span>
                                 </span>
+                                {c.photo_url && (
+                                  <button
+                                    type="button"
+                                    className={styles.photoThumbBtn}
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setViewingPhoto({
+                                        title: c.title,
+                                        url: c.photo_url!,
+                                        date: c.date,
+                                        status: c.completion_status,
+                                        aiFeedback: c.ai_feedback,
+                                      });
+                                    }}
+                                    title={t('admin.kidsStatusTab.viewPhoto', { defaultValue: '查看打卡照片' })}
+                                    aria-label={t('admin.kidsStatusTab.viewPhoto', { defaultValue: '查看打卡照片' })}
+                                  >
+                                    <img src={c.photo_url} alt="" className={styles.photoThumbImg} />
+                                  </button>
+                                )}
                                 {!c.completed && (
                                   <button
                                     type="button"
@@ -443,6 +527,44 @@ export const KidsStatusTab: React.FC<{ onPendingChange?: (count: number) => void
 
       {actionError && (
         <p className={ui.msgError} role="alert">{actionError}</p>
+      )}
+
+      {viewingPhoto && (
+        <Modal
+          isOpen={true}
+          onClose={() => setViewingPhoto(null)}
+          title={viewingPhoto.title}
+          maxWidth="560px"
+        >
+          <div className={styles.photoModalBody}>
+            <div className={styles.photoWrap}>
+              <img src={viewingPhoto.url} alt={viewingPhoto.title} className={styles.modalPhotoImg} />
+            </div>
+            <div className={styles.photoMetaRow}>
+              <span className={clsx(
+                styles.photoStatusTag,
+                viewingPhoto.status === 'approved' && styles.statusDoneTag,
+                viewingPhoto.status === 'pending' && styles.statusWaitingTag,
+                viewingPhoto.status === 'rejected' && styles.statusRejectedTag,
+              )}>
+                {viewingPhoto.status === 'approved'
+                  ? t('admin.kidsStatusTab.statusDoneTag', { defaultValue: '已审核完成' })
+                  : viewingPhoto.status === 'pending'
+                  ? t('admin.kidsStatusTab.statusPendingTag', { defaultValue: '待审核' })
+                  : viewingPhoto.status === 'rejected'
+                  ? t('admin.kidsStatusTab.statusRejectedTag', { defaultValue: '已驳回' })
+                  : t('admin.kidsStatusTab.statusDoneTag', { defaultValue: '已完成' })}
+              </span>
+              {viewingPhoto.date && <span className={styles.photoDateText}>{viewingPhoto.date}</span>}
+            </div>
+            {viewingPhoto.aiFeedback && (
+              <div className={styles.photoAiBox}>
+                <span className={styles.photoAiTitle}>🤖 {t('admin.approvalsTab.aiReview', { defaultValue: 'AI 评语' })}:</span>
+                <p className={styles.photoAiText}>{viewingPhoto.aiFeedback}</p>
+              </div>
+            )}
+          </div>
+        </Modal>
       )}
 
       <p className={styles.tapHint}>{t('admin.kidsStatusTab.tapHint')}</p>

@@ -224,15 +224,18 @@ type ChoreCompletion struct {
 // --- Points & Rewards ---
 
 type PointTransaction struct {
-	ID             int64     `json:"id"`
-	UserID         int64     `json:"user_id"`
-	Amount         int       `json:"amount"`
-	Reason         string    `json:"reason"`
-	ReferenceID    *int64    `json:"reference_id,omitempty"`
-	Note           string    `json:"note,omitempty"`
-	IdempotencyKey *string   `json:"idempotency_key,omitempty"`
-	CreatedAt      time.Time `json:"created_at"`
-	ChoreTitle     string    `json:"chore_title,omitempty"`
+	ID             int64      `json:"id"`
+	UserID         int64      `json:"user_id"`
+	Amount         int        `json:"amount"`
+	Reason         string     `json:"reason"`
+	ReferenceID    *int64     `json:"reference_id,omitempty"`
+	Note           string     `json:"note,omitempty"`
+	IdempotencyKey *string    `json:"idempotency_key,omitempty"`
+	CreatedAt      time.Time  `json:"created_at"`
+	ChoreTitle     string     `json:"chore_title,omitempty"`
+	CompletedAt    *time.Time `json:"completed_at,omitempty"`
+	ApprovedAt     *time.Time `json:"approved_at,omitempty"`
+	CompletionDate *string    `json:"completion_date,omitempty"`
 }
 
 type Reward struct {

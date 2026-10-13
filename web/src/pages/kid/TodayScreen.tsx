@@ -23,10 +23,11 @@ interface TodayProps {
   tts: boolean;
   onToggle: (c: ScheduledChore, view: ChoreView) => void;
   onPhoto: (c: ScheduledChore) => void;
+  onPhotoClick?: (c: ScheduledChore) => void;
   onSpeak: (text: string, audioUrl?: string) => void;
 }
 
-export function TodayScreen({ user, data, now, topBar, viewOf, tts, onToggle, onPhoto, onSpeak }: TodayProps) {
+export function TodayScreen({ user, data, now, topBar, viewOf, tts, onToggle, onPhoto, onPhotoClick, onSpeak }: TodayProps) {
   const { t } = useTranslation();
   const chores = (data.chores ?? []).filter(c => c.date === data.today);
   const firstName = user.name.split(' ')[0];
@@ -87,6 +88,7 @@ export function TodayScreen({ user, data, now, topBar, viewOf, tts, onToggle, on
             tts={tts}
             onToggle={onToggle}
             onPhoto={onPhoto}
+            onPhotoClick={onPhotoClick}
             onSpeak={onSpeak}
           />
         )}

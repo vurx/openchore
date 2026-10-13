@@ -24,6 +24,31 @@ func normalizeDate(s string) string {
 	return s
 }
 
+func parseFlexibleTime(s string) *time.Time {
+	if s == "" {
+		return nil
+	}
+	if idx := strings.Index(s, " m="); idx != -1 {
+		s = s[:idx]
+	}
+	layouts := []string{
+		time.RFC3339Nano,
+		time.RFC3339,
+		"2006-01-02 15:04:05.999999999 -0700 MST",
+		"2006-01-02 15:04:05 -0700 MST",
+		"2006-01-02 15:04:05.999999999",
+		"2006-01-02 15:04:05",
+		"2006-01-02T15:04:05",
+		"2006-01-02",
+	}
+	for _, l := range layouts {
+		if t, err := time.Parse(l, s); err == nil {
+			return &t
+		}
+	}
+	return nil
+}
+
 func boolToInt(b bool) int {
 	if b {
 		return 1
@@ -1195,6 +1220,12 @@ func (s *Store) UpdateCompletionPhoto(ctx context.Context, id int64, photoURL st
 	return err
 }
 
+// DeleteCompletion removes a completion row by id.
+func (s *Store) DeleteCompletion(ctx context.Context, id int64) error {
+	_, err := s.db.ExecContext(ctx, `DELETE FROM chore_completions WHERE id = ?`, id)
+	return err
+}
+
 // SetCompletionAIReview records the AI photo reviewer's note on a completion.
 func (s *Store) SetCompletionAIReview(ctx context.Context, id int64, r model.AIReviewResult) error {
 	_, err := s.db.ExecContext(ctx,
@@ -1384,7 +1415,27 @@ func (s *Store) ListPointTransactions(ctx context.Context, userID int64, limit i
 		                )
 		                ELSE NULL
 		            END, ''
-		        ) AS chore_title
+		        ) AS chore_title,
+		        CASE
+		            WHEN pt.reason IN ('chore_complete', 'chore_uncomplete', 'expiry_penalty') THEN (
+		                SELECT cc.completed_at FROM chore_completions cc WHERE cc.id = pt.reference_id
+		            )
+		            ELSE NULL
+		        END AS completed_at,
+		        CASE
+		            WHEN pt.reason IN ('chore_complete', 'chore_uncomplete', 'expiry_penalty') THEN (
+		                SELECT cc.approved_at FROM chore_completions cc WHERE cc.id = pt.reference_id
+		            )
+		            ELSE NULL
+		        END AS approved_at,
+		        CASE
+		            WHEN pt.reason IN ('chore_complete', 'chore_uncomplete', 'expiry_penalty') THEN (
+		                SELECT cc.completion_date FROM chore_completions cc WHERE cc.id = pt.reference_id
+		            )
+		            WHEN pt.reason = 'missed_chore' AND pt.note LIKE 'Penalty for missed chore on %' THEN
+		                substr(pt.note, 29, 10)
+		            ELSE NULL
+		        END AS completion_date
 		 FROM point_transactions pt WHERE pt.user_id = ? ORDER BY pt.id DESC LIMIT ?`, userID, limit)
 	if err != nil {
 		return nil, err
@@ -1394,12 +1445,25 @@ func (s *Store) ListPointTransactions(ctx context.Context, userID int64, limit i
 	for rows.Next() {
 		var t model.PointTransaction
 		var idempotencyKey sql.NullString
-		if err := rows.Scan(&t.ID, &t.UserID, &t.Amount, &t.Reason, &t.ReferenceID, &t.Note, &idempotencyKey, &t.CreatedAt, &t.ChoreTitle); err != nil {
+		var completedAtStr sql.NullString
+		var approvedAtStr sql.NullString
+		var completionDateStr sql.NullString
+		if err := rows.Scan(&t.ID, &t.UserID, &t.Amount, &t.Reason, &t.ReferenceID, &t.Note, &idempotencyKey, &t.CreatedAt, &t.ChoreTitle, &completedAtStr, &approvedAtStr, &completionDateStr); err != nil {
 			return nil, err
 		}
 		if idempotencyKey.Valid {
 			k := idempotencyKey.String
 			t.IdempotencyKey = &k
+		}
+		if completedAtStr.Valid && completedAtStr.String != "" {
+			t.CompletedAt = parseFlexibleTime(completedAtStr.String)
+		}
+		if approvedAtStr.Valid && approvedAtStr.String != "" {
+			t.ApprovedAt = parseFlexibleTime(approvedAtStr.String)
+		}
+		if completionDateStr.Valid && completionDateStr.String != "" {
+			d := normalizeDate(completionDateStr.String)
+			t.CompletionDate = &d
 		}
 		txs = append(txs, t)
 	}

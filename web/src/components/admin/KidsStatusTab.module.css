@@ -345,3 +345,187 @@
   font-size: 13px;
   color: var(--ink-muted);
 }
+
+/* ---------- Date Navigator ---------- */
+.dateNav {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.dateNavControls {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: var(--surface-raised);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-pill, 9999px);
+  padding: 3px 6px;
+}
+
+.dateBtn {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: 0;
+  background: transparent;
+  color: var(--ink);
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.dateBtn:hover:not(:disabled) {
+  background: var(--surface-hover, rgba(0, 0, 0, 0.05));
+}
+
+.dateBtn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.dateInputWrap {
+  display: inline-flex;
+  align-items: center;
+  position: relative;
+}
+
+.dateInput {
+  border: 0;
+  background: transparent;
+  color: var(--ink);
+  font-family: inherit;
+  font-size: 13.5px;
+  font-weight: 600;
+  padding: 2px 6px;
+  outline: none;
+  cursor: pointer;
+}
+
+.historyBadge {
+  margin-left: 4px;
+  font-size: 11px;
+}
+
+.todayBtn {
+  height: 34px;
+  padding: 0 12px;
+  font-size: 13px;
+}
+
+/* Photo thumbnail button in chore item */
+.photoThumbBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-sm, 6px);
+  border: 1px solid var(--line);
+  background: var(--surface-sunk);
+  padding: 0;
+  overflow: hidden;
+  cursor: pointer;
+  flex: none;
+  margin-left: 6px;
+  transition: transform 0.15s ease, border-color 0.15s ease;
+}
+
+.photoThumbBtn:hover {
+  transform: scale(1.08);
+  border-color: var(--accent);
+}
+
+.photoThumbImg {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+/* Photo Modal in KidsStatusTab */
+.photoModalBody {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.photoWrap {
+  width: 100%;
+  max-height: 60vh;
+  border-radius: var(--radius-md, 12px);
+  overflow: hidden;
+  background: var(--surface-sunk);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.modalPhotoImg {
+  max-width: 100%;
+  max-height: 60vh;
+  object-fit: contain;
+  display: block;
+}
+
+.photoMetaRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
+  font-size: 13px;
+}
+
+.photoStatusTag {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 8px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  background: var(--surface-sunk);
+  color: var(--ink-muted);
+}
+
+.statusDoneTag {
+  background: rgba(34, 197, 94, 0.15);
+  color: #16a34a;
+}
+
+.statusWaitingTag {
+  background: rgba(234, 179, 8, 0.15);
+  color: #ca8a04;
+}
+
+.statusRejectedTag {
+  background: rgba(239, 68, 68, 0.15);
+  color: #dc2626;
+}
+
+.photoDateText {
+  color: var(--ink-muted);
+  font-weight: 600;
+}
+
+.photoAiBox {
+  padding: 8px 12px;
+  background: var(--surface-sunk);
+  border-radius: var(--radius-sm, 8px);
+  font-size: 13px;
+}
+
+.photoAiTitle {
+  font-weight: 700;
+  color: var(--ink);
+}
+
+.photoAiText {
+  margin: 4px 0 0;
+  color: var(--ink-muted);
+  line-height: 1.4;
+}
+
+

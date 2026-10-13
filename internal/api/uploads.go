@@ -101,3 +101,14 @@ func resolveUploadPath(photoURL string) (string, error) {
 	}
 	return filepath.Join(uploadDir, name), nil
 }
+
+// deleteUploadedPhoto safely removes an uploaded photo file from disk.
+func deleteUploadedPhoto(photoURL string) {
+	if photoURL == "" {
+		return
+	}
+	path, err := resolveUploadPath(photoURL)
+	if err == nil {
+		_ = os.Remove(path)
+	}
+}

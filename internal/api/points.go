@@ -3,6 +3,7 @@ package api
 import (
 	"encoding/json"
 	"net/http"
+	"strconv"
 
 	"github.com/liftedkilt/openchore/internal/model"
 	"github.com/liftedkilt/openchore/internal/store"
@@ -43,7 +44,13 @@ func (h *PointsHandler) GetUserPoints(w http.ResponseWriter, r *http.Request) {
 	for _, c := range commitments {
 		committed += c.AmountSaved
 	}
-	txs, err := h.store.ListPointTransactions(r.Context(), userID, 50)
+	limit := 50
+	if l := r.URL.Query().Get("limit"); l != "" {
+		if val, err := strconv.Atoi(l); err == nil && val > 0 {
+			limit = val
+		}
+	}
+	txs, err := h.store.ListPointTransactions(r.Context(), userID, limit)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "failed to get transactions")
 		return

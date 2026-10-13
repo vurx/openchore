@@ -204,6 +204,9 @@ export interface PointTransaction {
   note?: string;
   created_at: string;
   chore_title?: string;
+  completed_at?: string;
+  approved_at?: string;
+  completion_date?: string;
 }
 
 export interface RewardCommitment {

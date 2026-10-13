@@ -19,6 +19,7 @@ import { TodayScreen } from './TodayScreen';
 import { WeekScreen } from './WeekScreen';
 import { RewardsScreen } from './RewardsScreen';
 import { PhotoSheet } from './PhotoSheet';
+import { PhotoDetailSheet } from './PhotoDetailSheet';
 import { MeSheet } from './MeSheet';
 import { CelebrationLayer } from './CelebrationLayer';
 import { choreDomId } from './ChoreItem';
@@ -70,6 +71,7 @@ export const KidApp: React.FC = () => {
   const [pinOpen, setPinOpen] = useState(false);
   const [linkedOpen, setLinkedOpen] = useState(false);
   const [photoChore, setPhotoChore] = useState<ScheduledChore | null>(null);
+  const [viewingPhotoChore, setViewingPhotoChore] = useState<ScheduledChore | null>(null);
   const [celebrating, setCelebrating] = useState<Celebrating | null>(null);
   const [baseUrl, setBaseUrl] = useState('');
 
@@ -191,7 +193,7 @@ export const KidApp: React.FC = () => {
       onManage={isAdmin ? toManage : undefined}
     />
   );
-  const shared = { user, data, topBar, viewOf, tts, onToggle, onPhoto: setPhotoChore, onSpeak: speakOrPlay };
+  const shared = { user, data, topBar, viewOf, tts, onToggle, onPhoto: setPhotoChore, onPhotoClick: setViewingPhotoChore, onSpeak: speakOrPlay };
 
   return (
     <SkinScope skin={skin} color={color} className={s.root}>
@@ -268,6 +270,17 @@ export const KidApp: React.FC = () => {
           baseUrl={baseUrl}
           onClose={() => setPhotoChore(null)}
           onComplete={onPhotoDone}
+        />
+      )}
+
+      {viewingPhotoChore && (
+        <PhotoDetailSheet
+          chore={viewingPhotoChore}
+          onClose={() => setViewingPhotoChore(null)}
+          onUpdated={() => {
+            data.reloadChores();
+            data.loadWeek();
+          }}
         />
       )}
 

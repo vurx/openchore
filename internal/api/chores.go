@@ -566,6 +566,9 @@ func (h *ChoreHandler) Complete(w http.ResponseWriter, r *http.Request) {
 
 	user := UserFromContext(r.Context())
 
+	// Fetch chore details
+	chore, _ := h.store.GetChore(r.Context(), schedule.ChoreID)
+
 	// Check if already completed
 	existing, err := h.store.GetCompletionForScheduleDate(r.Context(), scheduleID, req.CompletionDate)
 	if err != nil {
@@ -573,20 +576,44 @@ func (h *ChoreHandler) Complete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if existing != nil {
-		if existing.UncompletedAt != nil {
+		if existing.Status == model.StatusRejected {
+			// Previous attempt was rejected by parent. Clean up old photo if any,
+			// delete the rejected record, and fall through to let a fresh completion be created!
+			if existing.PhotoURL != "" {
+				deleteUploadedPhoto(existing.PhotoURL)
+			}
+			if err := h.store.DeleteCompletion(r.Context(), existing.ID); err != nil {
+				writeError(w, http.StatusInternalServerError, "failed to clear rejected attempt")
+				return
+			}
+			existing = nil
+		} else if existing.UncompletedAt != nil {
+			// If cancelled/uncompleted by parent, kid re-completing requires fresh photo
+			needsPhoto := (user == nil || user.Role != "admin") && chore.RequiresPhoto &&
+				(chore.PhotoSource == "child" || chore.PhotoSource == "both") && !req.SkipPhoto
+			if needsPhoto && req.PhotoURL == "" {
+				writeError(w, http.StatusBadRequest, "photo required")
+				return
+			}
 			// Soft-deleted prior completion exists. Approved + pending rows
-			// are revived in place so the kid keeps the photo / AI note /
-			// approval metadata and doesn't have to retake a photo after an
-			// accidental uncheck. Rejected rows are not revivable — treat
-			// them as fresh retry targets by hard-deleting and falling
-			// through to the normal complete flow.
+			// are revived in place.
 			if existing.Status == model.StatusApproved || existing.Status == model.StatusPending {
+				// If a child is re-completing a chore that requires approval, reset to pending
+				if chore.RequiresApproval && (user == nil || user.Role != "admin") {
+					existing.Status = model.StatusPending
+					existing.ApprovedBy = nil
+					existing.ApprovedAt = nil
+					_ = h.store.UpdateCompletionStatus(r.Context(), existing.ID, model.StatusPending, 0)
+				}
 				if err := h.store.ReviveCompletion(r.Context(), existing.ID); err != nil {
 					writeError(w, http.StatusInternalServerError, "failed to revive completion")
 					return
 				}
-				// A kid who skipped the photo may be re-checking with one now.
-				if req.PhotoURL != "" && req.PhotoURL != existing.PhotoURL {
+				// A kid who skipped the photo may be re-checking with one now, or providing a new photo.
+				if req.PhotoURL != "" {
+					if existing.PhotoURL != "" && existing.PhotoURL != req.PhotoURL {
+						deleteUploadedPhoto(existing.PhotoURL)
+					}
 					if err := h.store.UpdateCompletionPhoto(r.Context(), existing.ID, req.PhotoURL); err != nil {
 						writeError(w, http.StatusInternalServerError, "failed to attach photo")
 						return
@@ -659,9 +686,6 @@ func (h *ChoreHandler) Complete(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-
-	// Fetch chore details to check category and requirements
-	chore, _ := h.store.GetChore(r.Context(), schedule.ChoreID)
 
 	// For "child" photo source the kid takes the photo at completion time.
 	// For "external" or "both", a photo can be attached later.
@@ -860,9 +884,15 @@ func (h *ChoreHandler) Uncomplete(w http.ResponseWriter, r *http.Request) {
 		dateStr = time.Now().Format(model.DateFormat)
 	}
 
+	caller := UserFromContext(r.Context())
+	if caller == nil || caller.Role != model.RoleAdmin {
+		writeError(w, http.StatusForbidden, "only parents can uncomplete a chore")
+		return
+	}
+
 	// Get the schedule to check for FCFS
 	schedule, _ := h.store.GetSchedule(r.Context(), scheduleID)
-	if schedule != nil && !canActOnSchedule(UserFromContext(r.Context()), schedule) {
+	if schedule != nil && !canActOnSchedule(caller, schedule) {
 		writeError(w, http.StatusForbidden, "this chore is assigned to someone else")
 		return
 	}
@@ -1055,6 +1085,10 @@ func (h *ChoreHandler) Reject(w http.ResponseWriter, r *http.Request) {
 	}
 
 	admin := UserFromContext(r.Context())
+	if completion.PhotoURL != "" {
+		deleteUploadedPhoto(completion.PhotoURL)
+		_ = h.store.UpdateCompletionPhoto(r.Context(), id, "")
+	}
 	if err := h.store.UpdateCompletionStatus(r.Context(), id, model.StatusRejected, admin.ID); err != nil {
 		writeError(w, http.StatusInternalServerError, "failed to reject")
 		return
@@ -1099,12 +1133,22 @@ func (h *ChoreHandler) AttachPhoto(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	caller := UserFromContext(r.Context())
+	if caller != nil && caller.Role != model.RoleAdmin && caller.ID != completion.CompletedBy {
+		writeError(w, http.StatusForbidden, "not allowed to update photo for this completion")
+		return
+	}
+
 	var req struct {
 		PhotoURL string `json:"photo_url"`
 	}
 	if err := decodeJSON(r, &req); err != nil || req.PhotoURL == "" {
 		writeError(w, http.StatusBadRequest, "photo_url is required")
 		return
+	}
+
+	if completion.PhotoURL != "" && completion.PhotoURL != req.PhotoURL {
+		deleteUploadedPhoto(completion.PhotoURL)
 	}
 
 	if err := h.store.UpdateCompletionPhoto(r.Context(), id, req.PhotoURL); err != nil {

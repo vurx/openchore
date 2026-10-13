@@ -26,6 +26,10 @@ func NewDecayChecker(s *store.Store, d *Dispatcher) *DecayChecker {
 }
 
 func (pc *DecayChecker) Start(ctx context.Context) {
+	// Run an immediate check on startup so penalties are applied promptly after
+	// a restart rather than having to wait a full tick.
+	pc.check(ctx)
+
 	ticker := time.NewTicker(pc.interval)
 	defer ticker.Stop()
 
@@ -90,6 +94,9 @@ func (pc *DecayChecker) check(ctx context.Context) {
 					log.Printf("penalty-checker: failed to debit penalty for user %d, schedule %d: %v", u.ID, c.ScheduleID, err)
 					continue
 				}
+
+				log.Printf("penalty-checker: debited missed-chore penalty for user %d (%s), schedule %d (%s), amount -%d on date %s",
+					u.ID, u.Name, c.ScheduleID, c.Title, c.MissedPenaltyValue, yesterday)
 
 				pc.dispatcher.Fire(EventChoreMissed, map[string]any{
 					"user_id":        u.ID,

@@ -156,13 +156,8 @@ export function useKidData(user: User | null, opts: { tab?: TabId; week?: boolea
     setTogglingIds(prev => new Set(prev).add(chore.schedule_id));
     try {
       if (chore.completed && !opts2.retry) {
-        await api.chores.uncomplete(chore.schedule_id, chore.date);
-        await refreshAll();
+        // Kids cannot uncomplete completed chores; only parents can.
         return {};
-      }
-      if (opts2.retry) {
-        // A grown-up said no: clear that try, then start a fresh one.
-        await api.chores.uncomplete(chore.schedule_id, chore.date);
       }
       const needsPhoto = chore.requires_photo && (chore.photo_source || 'child') === 'child';
       try {

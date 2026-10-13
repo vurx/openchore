@@ -60,10 +60,11 @@ interface WeekProps {
   tts: boolean;
   onToggle: (c: ScheduledChore, view: ChoreView) => void;
   onPhoto: (c: ScheduledChore) => void;
+  onPhotoClick?: (c: ScheduledChore) => void;
   onSpeak: (text: string, audioUrl?: string) => void;
 }
 
-export function WeekScreen({ user, data, topBar, viewOf, tts, onToggle, onPhoto, onSpeak }: WeekProps) {
+export function WeekScreen({ user, data, topBar, viewOf, tts, onToggle, onPhoto, onPhotoClick, onSpeak }: WeekProps) {
   const { t, i18n } = useTranslation();
   const [selected, setSelected] = useState(data.today);
   const dates = weekDates(data.today);
@@ -138,6 +139,7 @@ export function WeekScreen({ user, data, topBar, viewOf, tts, onToggle, onPhoto,
           tts={tts}
           onToggle={onToggle}
           onPhoto={onPhoto}
+          onPhotoClick={onPhotoClick}
           onSpeak={onSpeak}
           headingLevel="h3"
         />

@@ -243,7 +243,8 @@ export const api = {
       fetchWithAuth<{ tts_audio_url: string }>(`/chores/${choreId}/tts/regenerate`, { method: 'POST' }),
   },
   points: {
-    getForUser: (userId: number) => fetchWithAuth<PointsData>(`/users/${userId}/points`),
+    getForUser: (userId: number, limit?: number) =>
+      fetchWithAuth<PointsData>(`/users/${userId}/points${limit ? `?limit=${limit}` : ''}`),
     getAllBalances: () => fetchWithAuth<PointBalance[]>('/points/balances'),
     adjust: (userId: number, amount: number, note: string) =>
       fetchWithAuth('/points/adjust', {

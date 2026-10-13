@@ -23,7 +23,20 @@
         "streak_bonus": "Streak-Bonus"
       },
       "title": "Aktivität",
-      "undoTitle": "Dieses Ereignis rückgängig machen"
+      "undoTitle": "Dieses Ereignis rückgängig machen",
+      "filterUser": "Nach Mitglied filtern",
+      "allUsers": "Alle Mitglieder",
+      "filterDate": "Nach Datum filtern",
+      "quickDates": "Schnelldaten",
+      "allDates": "Alle Zeiten",
+      "today": "Heute",
+      "yesterday": "Gestern",
+      "netPoints": "Nettoveränderung",
+      "earnedPoints": "Verdient",
+      "deductedPoints": "Abgezogen",
+      "eventsTotal": "Ereignisse",
+      "completedAt": "Erledigt",
+      "approvedAt": "Genehmigt"
     },
     "apiTokens": {
       "addButton": "Hinzufügen",
@@ -345,7 +358,14 @@
       "subtitle": "Der Tag aller auf einen Blick, {{date}}",
       "tapHint": "Tippe auf eine Person, um die heutigen Aufgaben zu sehen. Tippe auf den Kreis einer Aufgabe, um sie für sie zu erledigen.",
       "toggleError": "„{{title}}“ konnte nicht aktualisiert werden: {{error}}",
-      "waitingHeading": "Wartet auf dich"
+      "waitingHeading": "Wartet auf dich",
+      "historyHeading": "Aufgabenübersicht",
+      "dateNavigator": "Datumsnavigation",
+      "prevDay": "Vorheriger Tag",
+      "nextDay": "Nächster Tag",
+      "pickDate": "Datum auswählen",
+      "historyBadge": "Verlauf",
+      "todayBtn": "Heute"
     },
     "modal": {
       "close": "Schließen"

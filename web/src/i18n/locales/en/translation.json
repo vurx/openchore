@@ -23,7 +23,20 @@
         "streak_bonus": "Streak bonus"
       },
       "title": "Activity",
-      "undoTitle": "Undo this event"
+      "undoTitle": "Undo this event",
+      "filterUser": "Filter by member",
+      "allUsers": "All members",
+      "filterDate": "Filter by date",
+      "quickDates": "Quick dates",
+      "allDates": "All time",
+      "today": "Today",
+      "yesterday": "Yesterday",
+      "netPoints": "Net change",
+      "earnedPoints": "Earned",
+      "deductedPoints": "Deducted",
+      "eventsTotal": "Events",
+      "completedAt": "Completed",
+      "approvedAt": "Approved"
     },
     "apiTokens": {
       "addButton": "Add",
@@ -345,7 +358,14 @@
       "subtitle": "Everyone's day at a glance, {{date}}",
       "tapHint": "Tap a person to see today's chores. Tap a chore's circle to mark it done on their behalf.",
       "toggleError": "Couldn't update \"{{title}}\": {{error}}",
-      "waitingHeading": "Waiting for you"
+      "waitingHeading": "Waiting for you",
+      "historyHeading": "Chore status",
+      "dateNavigator": "Date navigation",
+      "prevDay": "Previous day",
+      "nextDay": "Next day",
+      "pickDate": "Pick date",
+      "historyBadge": "History",
+      "todayBtn": "Today"
     },
     "modal": {
       "close": "Close"

@@ -5,6 +5,7 @@ import { api } from '../../api';
 import { Icon, catFromCategory } from '../../design';
 import type { PendingCompletion, User } from '../../types';
 import { CategoryLabel, IconWell, PersonName } from './pickers';
+import Modal from '../Modal/Modal';
 import ui from './ui.module.css';
 import styles from './ApprovalList.module.css';
 
@@ -27,6 +28,7 @@ export const ApprovalList: React.FC<Props> = ({ pending, users, onChanged }) => 
   const { t, i18n } = useTranslation();
   const [busy, setBusy] = useState<number | null>(null);
   const [error, setError] = useState('');
+  const [previewPhoto, setPreviewPhoto] = useState<{ url: string; title: string } | null>(null);
 
   const act = async (id: number, action: 'approve' | 'reject') => {
     if (action === 'reject' && !confirm(t('admin.approvalsTab.rejectConfirm'))) return;
@@ -71,10 +73,15 @@ export const ApprovalList: React.FC<Props> = ({ pending, users, onChanged }) => 
             </div>
 
             {p.photo_url && (
-              <a className={styles.photo} href={p.photo_url} target="_blank" rel="noreferrer">
+              <button
+                type="button"
+                className={styles.photo}
+                onClick={() => setPreviewPhoto({ url: p.photo_url, title: p.chore_title })}
+                aria-label={t('admin.approvalsTab.openPhoto')}
+              >
                 <img src={p.photo_url} alt={t('admin.approvalsTab.photoAlt')} loading="lazy" />
                 <span className={styles.photoHint}><Icon name="camera" />{t('admin.approvalsTab.openPhoto')}</span>
-              </a>
+              </button>
             )}
 
             {p.requires_photo && !p.photo_url && (
@@ -133,6 +140,19 @@ export const ApprovalList: React.FC<Props> = ({ pending, users, onChanged }) => 
           </article>
         );
       })}
+
+      {previewPhoto && (
+        <Modal
+          isOpen={true}
+          onClose={() => setPreviewPhoto(null)}
+          title={previewPhoto.title}
+          maxWidth="560px"
+        >
+          <div style={{ display: 'flex', justifyContent: 'center', background: 'var(--surface-sunk)', borderRadius: '12px', overflow: 'hidden', maxHeight: '65vh' }}>
+            <img src={previewPhoto.url} alt={previewPhoto.title} style={{ maxWidth: '100%', maxHeight: '65vh', objectFit: 'contain', display: 'block' }} />
+          </div>
+        </Modal>
+      )}
     </div>
   );
 };

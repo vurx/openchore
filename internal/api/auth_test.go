@@ -329,6 +329,8 @@ func TestKidCannotCompleteSiblingsChore(t *testing.T) {
 		childHeaders(kidA), http.StatusCreated)
 	env.expectStatus(t, "DELETE", fmt.Sprintf("/api/schedules/%d/complete", sched), nil,
 		childHeaders(kidB), http.StatusForbidden)
+	env.expectStatus(t, "DELETE", fmt.Sprintf("/api/schedules/%d/complete", sched), nil,
+		childHeaders(kidA), http.StatusForbidden)
 }
 
 func TestParentCompletesKidsChoreOnTheirBehalf(t *testing.T) {

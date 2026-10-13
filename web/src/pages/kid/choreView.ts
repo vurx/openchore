@@ -81,6 +81,7 @@ export function choreView(c: ScheduledChore, ctx: ChoreViewContext): ChoreView {
 
   // --- Finished in some way ---
   if (c.completed) {
+    base.canToggle = false;
     base.needsPhotoProof = isToday && !!c.requires_photo &&
       (c.photo_source === 'both' || c.photo_source === 'external') && !c.photo_url;
     if (c.completed_by_sibling) {
@@ -92,6 +93,7 @@ export function choreView(c: ScheduledChore, ctx: ChoreViewContext): ChoreView {
       case 'rejected':
         return {
           ...base, state: 'todo', urgent: true, meta: t('kid.chore.rejected'), retry: true,
+          canToggle: isToday,
           checkLabel: t('design.chore.markComplete'), points: c.points_value,
         };
       case 'excused':
